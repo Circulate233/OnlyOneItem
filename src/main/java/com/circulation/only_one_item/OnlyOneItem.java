@@ -2,6 +2,7 @@ package com.circulation.only_one_item;
 
 import com.circulation.only_one_item.handler.InitHandler;
 import com.circulation.only_one_item.handler.MatchItemHandler;
+import com.circulation.only_one_item.handler.OreDictionaryHandler;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
@@ -31,7 +32,7 @@ public class OnlyOneItem {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        MinecraftForge.EVENT_BUS.register(new InitHandler());
+        MinecraftForge.EVENT_BUS.register(new OreDictionaryHandler());
         if (Loader.isModLoaded("unidict")) {
             LOGGER.warn("OnlyOneItem and UniDict are incompatible, which may cause some errors to occur!");
         }

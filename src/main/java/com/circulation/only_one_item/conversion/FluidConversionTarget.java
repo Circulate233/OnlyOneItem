@@ -1,6 +1,7 @@
 package com.circulation.only_one_item.conversion;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import lombok.Getter;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
@@ -8,6 +9,7 @@ import net.minecraftforge.fluids.FluidStack;
 import java.util.Arrays;
 import java.util.Set;
 
+@Getter
 public final class FluidConversionTarget {
 
     private Set<String> matchFluids;
@@ -45,11 +47,4 @@ public final class FluidConversionTarget {
         return FluidRegistry.getFluid(targetID);
     }
 
-    public String getTargetID() {
-        return targetID;
-    }
-
-    public Set<String> getMatchFluids() {
-        return matchFluids;
-    }
 }

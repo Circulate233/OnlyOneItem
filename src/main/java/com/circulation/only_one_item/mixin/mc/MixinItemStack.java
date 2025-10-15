@@ -38,6 +38,9 @@ public abstract class MixinItemStack implements OOIItemStack {
     @Shadow
     public abstract void setCount(int size);
 
+    @Shadow
+    public abstract void setItemDamage(int meta);
+
     @Unique
     private static boolean ooi$init = false;
 
@@ -47,6 +50,13 @@ public abstract class MixinItemStack implements OOIItemStack {
     @Inject(method = "forgeInit", at = @At("TAIL"), remap = false)
     private void forgeInit(CallbackInfo ci) {
         if (!this.isEmpty()) {
+            ooi$ooiInit();
+        }
+    }
+
+    @Inject(method = "setItemDamage", at = @At("TAIL"), remap = false)
+    private void setMateData(int meta, CallbackInfo ci) {
+        if (this.getItem().getHasSubtypes()) {
             ooi$ooiInit();
         }
     }
@@ -75,15 +85,20 @@ public abstract class MixinItemStack implements OOIItemStack {
         ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
 
         if (target != null) {
-            item = target.getTarget();
-            ooi$isBeReplaced = true;
-            if (item != Items.AIR) {
-                delegate = item.delegate;
-                itemDamage = target.getTargetMeta();
-            } else {
-                this.setCount(0);
+            var item = target.getTarget();
+            if (item != null) {
+                if (item == Items.AIR) {
+                    this.setCount(0);
+                } else {
+                    this.item = item;
+                    delegate = item.delegate;
+                    itemDamage = target.getTargetMeta();
+                }
+                ooi$isBeReplaced = true;
+                return;
             }
-        } else if (!ooi$init) {
+        }
+        if (!ooi$init) {
             MatchItemHandler.addPreItemStack(this);
         }
     }

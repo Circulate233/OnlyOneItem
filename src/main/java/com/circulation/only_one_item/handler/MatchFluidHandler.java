@@ -2,7 +2,7 @@ package com.circulation.only_one_item.handler;
 
 import com.circulation.only_one_item.conversion.FluidConversionTarget;
 import com.circulation.only_one_item.util.OOIFluidStack;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
@@ -17,7 +17,7 @@ public class MatchFluidHandler {
 
     private static List<WeakReference<OOIFluidStack>> list = new ObjectArrayList<>();
 
-    private static final Map<String, Fluid> fluidNameToTargetMap = new Object2ObjectOpenHashMap<>();
+    private static final Map<String, Fluid> fluidNameToTargetMap = new Object2ReferenceOpenHashMap<>();
 
     public static void preFluidStackInit() {
         if (list == null)

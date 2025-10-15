@@ -15,6 +15,7 @@ import net.minecraftforge.fml.common.Loader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
@@ -35,10 +36,11 @@ public class OOIConfig {
 
         var config = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
-        if (Files.exists(ooiPath)){
+        if (Files.exists(ooiPath)) {
             try {
-                items.addAll(config.fromJson(new String(Files.readAllBytes(ooiPath)), (new TypeToken<Set<ItemConversionTarget>>() {}).getType()));
-            } catch (Exception ignored){
+                items.addAll(config.fromJson(new String(Files.readAllBytes(ooiPath), StandardCharsets.UTF_8), (new TypeToken<Set<ItemConversionTarget>>() {
+                }).getType()));
+            } catch (Exception ignored) {
                 OnlyOneItem.LOGGER.error("[OOI]The config/ooi/ooi_item.json file is incorrect!");
             }
         } else {
@@ -51,28 +53,30 @@ public class OOIConfig {
             }
         }
 
-        if (Files.exists(ooiFluidPath)){
+        if (Files.exists(ooiFluidPath)) {
             try {
-                fluids.addAll(config.fromJson(new String(Files.readAllBytes(ooiFluidPath)), (new TypeToken<Set<FluidConversionTarget>>() {}).getType()));
-            } catch (Exception ignored){
+                fluids.addAll(config.fromJson(new String(Files.readAllBytes(ooiFluidPath), StandardCharsets.UTF_8), (new TypeToken<Set<FluidConversionTarget>>() {
+                }).getType()));
+            } catch (Exception ignored) {
                 OnlyOneItem.LOGGER.error("[OOI]The config/ooi/ooi_fluid.json file is incorrect!");
             }
         } else {
             fluids.add(new FluidConversionTarget(FluidRegistry.WATER.getName()).addMatchFluid(FluidRegistry.WATER.getName()));
-            Files.write(ooiFluidPath, config.toJson(fluids).getBytes());
+            Files.write(ooiFluidPath, config.toJson(fluids).getBytes(StandardCharsets.UTF_8));
         }
 
-        if (Files.exists(blackPath)){
+        if (Files.exists(blackPath)) {
             try {
-                blackList.addAll(config.fromJson(new String(Files.readAllBytes(blackPath)), (new TypeToken<Set<BlackMatchItem>>() {}).getType()));
+                blackList.addAll(config.fromJson(new String(Files.readAllBytes(blackPath), StandardCharsets.UTF_8), (new TypeToken<Set<BlackMatchItem>>() {
+                }).getType()));
             } catch (Exception ignored) {
                 OnlyOneItem.LOGGER.error("[OOI]The config/ooi/ooi_item_black_list.json file is incorrect!");
             }
         } else {
-            blackList.add(BlackMatchItem.getInstance("minecraft:gold_ingot",0));
-            blackList.add(BlackMatchItem.getInstance(Type.OreDict,"ingotGold"));
-            blackList.add(BlackMatchItem.getInstance(Type.ModID,"minecraft"));
-            Files.write(blackPath, config.toJson(blackList).getBytes());
+            blackList.add(BlackMatchItem.getInstance("minecraft:gold_ingot", 0));
+            blackList.add(BlackMatchItem.getInstance(Type.OreDict, "ingotGold"));
+            blackList.add(BlackMatchItem.getInstance(Type.ModID, "minecraft"));
+            Files.write(blackPath, config.toJson(blackList).getBytes(StandardCharsets.UTF_8));
         }
         MatchItemHandler.InitTarget();
         MatchFluidHandler.Init(OOIConfig.fluids);
