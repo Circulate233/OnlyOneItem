@@ -20,6 +20,7 @@ import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import lombok.Synchronized;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -212,11 +213,13 @@ public class MatchItemHandler {
         for (Map.Entry<String, ItemConversionTarget> entry : odToTargetMap.entrySet()) {
             var od = entry.getKey();
             var list = OreDictionary.getOres(od);
+            var blackList = new ReferenceArrayList<ItemStack>();
             for (ItemStack ore : list) {
                 if (finalODBlackSet.contains(od)) {
                     finalItemBlackMap
                             .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
                             .add(ore.getMetadata());
+                    blackList.add(ore);
                     continue;
                 }
                 var rl = ore.getItem().getRegistryName();
@@ -225,6 +228,7 @@ public class MatchItemHandler {
                         finalItemBlackMap
                                 .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
                                 .add(ore.getMetadata());
+                        blackList.add(ore);
                         continue;
                     }
                 }
@@ -237,6 +241,7 @@ public class MatchItemHandler {
             }
             list.clear();
             list.add(entry.getValue().getItemStack());
+            list.addAll(blackList);
         }
     }
 
