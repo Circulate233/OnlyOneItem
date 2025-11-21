@@ -15,44 +15,43 @@ import java.util.Map;
 
 public class MatchFluidHandler {
 
-    private static List<WeakReference<OOIFluidStack>> list = new ObjectArrayList<>();
-
     private static final Map<String, Fluid> fluidNameToTargetMap = new Object2ReferenceOpenHashMap<>();
+    private static List<WeakReference<OOIFluidStack>> list = new ObjectArrayList<>();
 
     public static void preFluidStackInit() {
         if (list == null)
             throw new RuntimeException("[OOI] Initialization should not be performed multiple times");
-        ((OOIFluidStack) new FluidStack(FluidRegistry.WATER,1)).ooi$init();
+        ((OOIFluidStack) new FluidStack(FluidRegistry.WATER, 1)).ooi$init();
         list.parallelStream()
-                .forEach(ref -> {
-                    var fluid = ref.get();
-                    if (fluid != null) {
-                        IRegistryDelegate<Fluid> stack;
-                        if ((stack = fluid.ooi$getFluidDelegate()) != null){
-                            fluid.ooi$ooiInit(stack.get());
-                        }
+            .forEach(ref -> {
+                var fluid = ref.get();
+                if (fluid != null) {
+                    IRegistryDelegate<Fluid> stack;
+                    if ((stack = fluid.ooi$getFluidDelegate()) != null) {
+                        fluid.ooi$ooiInit(stack.get());
                     }
-                });
+                }
+            });
         list.clear();
         list = null;
     }
 
-    public static synchronized void addPreFluidStack(OOIFluidStack i){
+    public static synchronized void addPreFluidStack(OOIFluidStack i) {
         if (list == null)
             throw new RuntimeException("[OOI] It should not be added again after initialization");
         list.add(new WeakReference<>(i));
     }
 
     public static Fluid match(Object obj) {
-        if (!(obj instanceof Fluid fluid))return null;
+        if (!(obj instanceof Fluid fluid)) return null;
         return fluidNameToTargetMap.get(fluid.getName());
     }
 
     public static void Init(List<FluidConversionTarget> fluids) {
         for (FluidConversionTarget t : fluids) {
             for (String fluid : t.getMatchFluids()) {
-                if (t.getTarget() != null){
-                    fluidNameToTargetMap.put(fluid,t.getTarget());
+                if (t.getTarget() != null) {
+                    fluidNameToTargetMap.put(fluid, t.getTarget());
                 }
             }
         }

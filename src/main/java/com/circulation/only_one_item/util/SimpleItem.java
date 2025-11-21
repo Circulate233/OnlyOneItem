@@ -14,18 +14,13 @@ import java.util.Map;
 import java.util.Objects;
 
 public final class SimpleItem {
+    private static final Map<ResourceLocation, Int2ObjectMap<SimpleItem>> chace = new Object2ObjectOpenHashMap<>();
+    public static final SimpleItem EMPTY = SimpleItem.getInstance(ItemStack.EMPTY);
     @NonNull
     private final ResourceLocation item;
     @Getter
     private final int meta;
     private final int hashCode;
-
-    private static final Map<ResourceLocation, Int2ObjectMap<SimpleItem>> chace = new Object2ObjectOpenHashMap<>();
-    public static final SimpleItem EMPTY = SimpleItem.getInstance(ItemStack.EMPTY);
-
-    public boolean isEmpty() {
-        return this == EMPTY || Objects.equals(this.item, ItemStack.EMPTY.getItem().getRegistryName());
-    }
 
     private SimpleItem(@NonNull ResourceLocation item, int meta) {
         this.item = item;
@@ -49,6 +44,10 @@ public final class SimpleItem {
 
     public static SimpleItem getInstance(@NonNull ItemStack stack) {
         return getInstance(stack.getItem().getRegistryName(), stack.getMetadata());
+    }
+
+    public boolean isEmpty() {
+        return this == EMPTY || Objects.equals(this.item, ItemStack.EMPTY.getItem().getRegistryName());
     }
 
     public Item getItem() {

@@ -11,10 +11,14 @@ import java.util.Set;
 
 @Getter
 public final class ItemConversionTarget {
-    private Set<MatchItem> matchItems;
-
     private final String targetID;
     private final int targetMeta;
+    private Set<MatchItem> matchItems;
+
+    public ItemConversionTarget(String targetID, int targetMeta) {
+        this.targetID = targetID;
+        this.targetMeta = targetMeta;
+    }
 
     public Item getTarget() {
         return Item.getByNameOrId(targetID);
@@ -22,11 +26,6 @@ public final class ItemConversionTarget {
 
     public ItemStack getItemStack() {
         return new ItemStack(getTarget(), 1, targetMeta);
-    }
-
-    public ItemConversionTarget(String targetID, int targetMeta) {
-        this.targetID = targetID;
-        this.targetMeta = targetMeta;
     }
 
     public ItemConversionTarget addMatchItem(ItemStack... stacks) {

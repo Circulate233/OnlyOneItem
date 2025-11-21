@@ -7,15 +7,15 @@ import net.minecraftforge.fml.common.Optional;
 
 public class InitHandler {
 
-    public static void allPreInit(){
+    public static void allPreInit() {
         MatchItemHandler.preItemStackInit();
         MatchFluidHandler.preFluidStackInit();
 
-        if (Loader.isModLoaded("mekanism"))MekInit();
+        if (Loader.isModLoaded("mekanism")) MekInit();
     }
 
     @Optional.Method(modid = "mekanism")
-    private static void MekInit(){
+    private static void MekInit() {
         RecipeHandler.Recipe.values().forEach(recipe -> ((OOIMekRecipe) recipe).ooi$refresh());
     }
 }

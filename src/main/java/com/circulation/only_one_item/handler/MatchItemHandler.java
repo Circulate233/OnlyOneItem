@@ -44,7 +44,7 @@ public class MatchItemHandler {
     private static final Set<String> finalODBlackSet = new ObjectOpenHashSet<>();
     private static final Set<String> finalMODIDBlackSet = new ObjectOpenHashSet<>();
     private static final Set<SimpleItem> allTarget = new ObjectOpenHashSet<>();
-
+    private static final Int2ObjectMap<ItemConversionTarget> defaultMap = Int2ObjectMaps.emptyMap();
     private static List<WeakReference<OOIItemStack>> list = new ObjectArrayList<>();
 
     public static void preItemStackInit() {
@@ -58,7 +58,7 @@ public class MatchItemHandler {
                 int meta = stack.getMetadata();
                 if (rl == null) continue;
                 if ((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
-                        || finalMODIDBlackSet.contains(rl.getNamespace())) {
+                    || finalMODIDBlackSet.contains(rl.getNamespace())) {
                     ods.add(stack);
                 }
                 if (allTarget.contains(SimpleItem.getInstance(stack))) {
@@ -72,10 +72,10 @@ public class MatchItemHandler {
         ((OOIItemStack) (Object) ItemStack.EMPTY).ooi$init();
 
         list.parallelStream()
-                .forEach(weak -> {
-                    var item = weak.get();
-                    if (item != null) item.ooi$ooiInit();
-                });
+            .forEach(weak -> {
+                var item = weak.get();
+                if (item != null) item.ooi$ooiInit();
+            });
         list.clear();
         list = null;
 
@@ -112,8 +112,8 @@ public class MatchItemHandler {
         for (SimpleItem item : set) {
             ResourceLocation ii;
             if ((itemIdToTargetMap.containsKey(ii = item.getItemRL())
-                    && itemIdToTargetMap.get(ii).containsKey(item.getMeta()))
-                    || allTarget.contains(item)) {
+                && itemIdToTargetMap.get(ii).containsKey(item.getMeta()))
+                || allTarget.contains(item)) {
                 return true;
             }
         }
@@ -140,7 +140,7 @@ public class MatchItemHandler {
             if (rs.getOutputSignature().isEmpty() || !rs.isModify()) continue;
 
             recipes.computeIfAbsent(rs, v -> new ObjectArrayList<>())
-                    .add(recipe);
+                   .add(recipe);
         }
 
         allTarget.clear();
@@ -183,28 +183,35 @@ public class MatchItemHandler {
         list.add(new WeakReference<>(i));
     }
 
+    public static void addTargetItem(ResourceLocation rl, int meta, ItemConversionTarget target) {
+        itemIdToTargetMap
+            .computeIfAbsent(rl, k -> new Int2ObjectOpenHashMap<>())
+            .put(meta, target);
+        finalItemBlackMap
+            .computeIfAbsent(rl, k -> new IntOpenHashSet())
+            .add(meta);
+    }
+
     public static void onOreRegister(OreDictionary.OreRegisterEvent event) {
         var od = event.getName();
         var ore = event.getOre();
         if (finalODBlackSet.contains(od)) {
             finalItemBlackMap
-                    .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
-                    .add(ore.getMetadata());
+                .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
+                .add(ore.getMetadata());
             return;
         }
         var rl = ore.getItem().getRegistryName();
         if (rl != null) {
             if (finalMODIDBlackSet.contains(rl.getNamespace())) {
                 finalItemBlackMap
-                        .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
-                        .add(ore.getMetadata());
+                    .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
+                    .add(ore.getMetadata());
                 return;
             }
         }
         if (odToTargetMap.containsKey(od)) {
-            itemIdToTargetMap
-                    .computeIfAbsent(ore.getItem().getRegistryName(), k -> new Int2ObjectOpenHashMap<>())
-                    .put(ore.getMetadata(), odToTargetMap.get(od));
+            addTargetItem(rl, ore.getMetadata(), odToTargetMap.get(od));
             ((OOIItemStack) (Object) ore).ooi$ooiInit();
         }
     }
@@ -217,8 +224,8 @@ public class MatchItemHandler {
             for (ItemStack ore : list) {
                 if (finalODBlackSet.contains(od)) {
                     finalItemBlackMap
-                            .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
-                            .add(ore.getMetadata());
+                        .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
+                        .add(ore.getMetadata());
                     blackList.add(ore);
                     continue;
                 }
@@ -226,16 +233,14 @@ public class MatchItemHandler {
                 if (rl != null) {
                     if (finalMODIDBlackSet.contains(rl.getNamespace())) {
                         finalItemBlackMap
-                                .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
-                                .add(ore.getMetadata());
+                            .computeIfAbsent(rl, item -> new IntOpenHashSet())
+                            .add(ore.getMetadata());
                         blackList.add(ore);
                         continue;
                     }
                 }
                 if (odToTargetMap.containsKey(od)) {
-                    itemIdToTargetMap
-                            .computeIfAbsent(ore.getItem().getRegistryName(), k -> new Int2ObjectOpenHashMap<>())
-                            .put(ore.getMetadata(), odToTargetMap.get(od));
+                    addTargetItem(rl, ore.getMetadata(), odToTargetMap.get(od));
                     ((OOIItemStack) (Object) ore).ooi$ooiInit();
                 }
             }
@@ -245,20 +250,19 @@ public class MatchItemHandler {
         }
     }
 
-    private static final Int2ObjectMap<ItemConversionTarget> defaultMap = Int2ObjectMaps.emptyMap();
-
     public static ItemConversionTarget match(Item item, int meta) {
         if (item == null) return null;
         ResourceLocation rl = item.getRegistryName();
         if (rl == null) return null;
-        if ((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
-                || finalMODIDBlackSet.contains(rl.getNamespace())) {
+        IntSet s;
+        if (((s = finalItemBlackMap.get(rl)) != null && s.contains(meta))
+            || finalMODIDBlackSet.contains(rl.getNamespace())) {
             return null;
         }
 
         return itemIdToTargetMap
-                .getOrDefault(rl, defaultMap)
-                .get(meta);
+            .getOrDefault(rl, defaultMap)
+            .get(meta);
     }
 
     private static void Init(List<ItemConversionTarget> items) {
@@ -268,31 +272,27 @@ public class MatchItemHandler {
                 if (matchItem.oreName() != null) {
                     var list = OreDictionary.getOres(matchItem.oreName(), false);
                     list.stream()
-                            .filter(stack -> {
-                                Item item = stack.getItem();
-                                ResourceLocation rl = item.getRegistryName();
-                                int meta = stack.getMetadata();
-                                if (rl == null) return false;
-                                return !allTarget.contains(SimpleItem.getInstance(stack))
-                                        && !((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
-                                        || finalMODIDBlackSet.contains(rl.getNamespace()));
-                            })
-                            .forEach(stack -> {
-                                Item item = stack.getItem();
-                                ResourceLocation rl = item.getRegistryName();
-                                int meta = stack.getMetadata();
-                                if (rl != null) {
-                                    itemIdToTargetMap
-                                            .computeIfAbsent(rl, k -> new Int2ObjectOpenHashMap<>())
-                                            .put(meta, t);
-                                }
-                            });
+                        .filter(stack -> {
+                            Item item = stack.getItem();
+                            ResourceLocation rl = item.getRegistryName();
+                            int meta = stack.getMetadata();
+                            if (rl == null) return false;
+                            return !allTarget.contains(SimpleItem.getInstance(stack))
+                                && !((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
+                                || finalMODIDBlackSet.contains(rl.getNamespace()));
+                        })
+                        .forEach(stack -> {
+                            Item item = stack.getItem();
+                            ResourceLocation rl = item.getRegistryName();
+                            int meta = stack.getMetadata();
+                            if (rl != null) {
+                                addTargetItem(rl, meta, t);
+                            }
+                        });
                     odToTargetMap.put(matchItem.oreName(), t);
                 } else if (matchItem.id() != null) {
                     if (!allTarget.contains(SimpleItem.getInstance(matchItem.id(), matchItem.meta()))) {
-                        itemIdToTargetMap
-                                .computeIfAbsent(new ResourceLocation(matchItem.id()), k -> new Int2ObjectOpenHashMap<>())
-                                .put(matchItem.meta(), t);
+                        addTargetItem(new ResourceLocation(matchItem.id()), matchItem.meta(), t);
                     }
                 }
             }
@@ -304,22 +304,22 @@ public class MatchItemHandler {
         for (BlackMatchItem matchItem : blackSet) {
             switch (matchItem.type()) {
                 case Item -> finalItemBlackMap
-                        .computeIfAbsent(new ResourceLocation(matchItem.name()), k -> new IntOpenHashSet())
-                        .add(matchItem.meta());
+                    .computeIfAbsent(new ResourceLocation(matchItem.name()), k -> new IntOpenHashSet())
+                    .add(matchItem.meta());
                 case ModID -> finalMODIDBlackSet.add(matchItem.name());
                 case OreDict -> {
                     String od;
                     OreDictionary.getOres(od = matchItem.name())
-                            .forEach(stack -> {
-                                Item item = stack.getItem();
-                                ResourceLocation rl = item.getRegistryName();
-                                int meta = stack.getMetadata();
-                                if (rl != null) {
-                                    finalItemBlackMap
-                                            .computeIfAbsent(rl, k -> new IntOpenHashSet())
-                                            .add(meta);
-                                }
-                            });
+                                 .forEach(stack -> {
+                                     Item item = stack.getItem();
+                                     ResourceLocation rl = item.getRegistryName();
+                                     int meta = stack.getMetadata();
+                                     if (rl != null) {
+                                         finalItemBlackMap
+                                             .computeIfAbsent(rl, k -> new IntOpenHashSet())
+                                             .add(meta);
+                                     }
+                                 });
                     finalODBlackSet.add(od);
                 }
             }

@@ -18,16 +18,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemStack.class)
 public abstract class MixinItemStack implements OOIItemStack {
 
+    @Unique
+    private static boolean ooi$init = false;
+    @Shadow
+    int itemDamage;
     @Mutable
     @Shadow
     @Final
     private Item item;
-
     @Shadow(remap = false)
     private net.minecraftforge.registries.IRegistryDelegate<Item> delegate;
-
-    @Shadow
-    int itemDamage;
+    @Unique
+    private boolean ooi$isBeReplaced = false;
 
     @Shadow
     public abstract Item getItem();
@@ -40,12 +42,6 @@ public abstract class MixinItemStack implements OOIItemStack {
 
     @Shadow
     public abstract void setItemDamage(int meta);
-
-    @Unique
-    private static boolean ooi$init = false;
-
-    @Unique
-    private boolean ooi$isBeReplaced = false;
 
     @Inject(method = "forgeInit", at = @At("TAIL"), remap = false)
     private void forgeInit(CallbackInfo ci) {

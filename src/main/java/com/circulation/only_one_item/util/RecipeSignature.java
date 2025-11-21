@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class RecipeSignature {
+    private static final ForgeRegistry<IRecipe> fr = RegistryManager.ACTIVE.getRegistry(GameData.RECIPES);
     @Getter
     private final SimpleItem outputSignature;
     private final int outputAmount;
@@ -37,12 +38,10 @@ public class RecipeSignature {
     private final int hashCode;
     private final int height;
     private final int width;
-    @Getter
-    private boolean isModify;
-    private static final ForgeRegistry<IRecipe> fr = RegistryManager.ACTIVE.getRegistry(GameData.RECIPES);
-
     Object obs;
     boolean repeat = true;
+    @Getter
+    private boolean isModify;
 
     public RecipeSignature(IRecipe recipe) {
         this.outputSignature = SimpleItem.getInstance(recipe.getRecipeOutput());
@@ -81,7 +80,7 @@ public class RecipeSignature {
                         odName = OreDictionary.getOreName(od);
                     }
                 }
-                if (odName.isEmpty() || isCorrectOD(matching,odName)) {
+                if (odName.isEmpty() || isCorrectOD(matching, odName)) {
                     signatures.add(odName);
                     if (!odName.isEmpty()) {
                         cleanInputSignatures.add(odName);
@@ -96,8 +95,8 @@ public class RecipeSignature {
                 } else {
                     Multiset<SimpleItem> set = HashMultiset.create();
                     Arrays.stream(matching)
-                            .map(SimpleItem::getInstance)
-                            .forEach(set::add);
+                          .map(SimpleItem::getInstance)
+                          .forEach(set::add);
                     signatures.add(set);
                     cleanInputSignatures.add(set);
                     if (!this.isModify) this.isModify = MatchItemHandler.isModify(set);
@@ -114,10 +113,10 @@ public class RecipeSignature {
         return signatures;
     }
 
-    private boolean isCorrectOD(ItemStack[] matching,String odName){
+    private boolean isCorrectOD(ItemStack[] matching, String odName) {
         var od = OreDictionary.getOres(odName);
         for (ItemStack itemStack : matching) {
-            if (!OreDictionary.containsMatch(true,od,itemStack)){
+            if (!OreDictionary.containsMatch(true, od, itemStack)) {
                 return false;
             }
         }
@@ -130,8 +129,8 @@ public class RecipeSignature {
             if (ods.length == 0) {
                 Multiset<SimpleItem> set = HashMultiset.create();
                 Arrays.stream(matching)
-                        .map(SimpleItem::getInstance)
-                        .forEach(set::add);
+                      .map(SimpleItem::getInstance)
+                      .forEach(set::add);
                 signatures.add(set);
                 cleanInputSignatures.add(set);
                 if (!this.isModify) this.isModify = MatchItemHandler.isModify(set);
@@ -158,20 +157,20 @@ public class RecipeSignature {
             for (Object input : inputSignatures) {
                 if (input instanceof String od) {
                     inputs.add(od.isEmpty() ?
-                            Ingredient.EMPTY
-                            : new OreIngredient(od));
+                        Ingredient.EMPTY
+                        : new OreIngredient(od));
                 } else if (input instanceof Multiset<?> items) {
                     inputs.add(
-                            Ingredient.fromStacks(
-                                    items.stream()
-                                            .map(ii -> {
-                                                if (ii instanceof SimpleItem s) {
-                                                    return s.getItemStack(1);
-                                                }
-                                                return ItemStack.EMPTY;
-                                            })
-                                            .toArray(ItemStack[]::new)
-                            )
+                        Ingredient.fromStacks(
+                            items.stream()
+                                 .map(ii -> {
+                                     if (ii instanceof SimpleItem s) {
+                                         return s.getItemStack(1);
+                                     }
+                                     return ItemStack.EMPTY;
+                                 })
+                                 .toArray(ItemStack[]::new)
+                        )
                     );
                 } else {
                     inputs.add(Ingredient.EMPTY);
@@ -180,35 +179,35 @@ public class RecipeSignature {
             if (isEmpty(inputs)) {
                 return;
             }
-            fr.register(new ShapedRecipes("", width, height, inputs,out).setRegistryName(OnlyOneItem.MOD_ID, NAME));
+            fr.register(new ShapedRecipes("", width, height, inputs, out).setRegistryName(OnlyOneItem.MOD_ID, NAME));
         } else {
             for (Object input : cleanInputSignatures) {
                 if (input instanceof String od) {
                     inputs.add(od.isEmpty() ?
-                            Ingredient.EMPTY
-                            : new OreIngredient(od));
+                        Ingredient.EMPTY
+                        : new OreIngredient(od));
                 } else if (input instanceof Multiset<?> items) {
                     inputs.add(Ingredient.fromStacks(items.stream()
-                            .map(ii -> {
-                                if (ii instanceof SimpleItem s) {
-                                    return s.getItemStack(1);
-                                }
-                                return ItemStack.EMPTY;
-                            })
-                            .toArray(ItemStack[]::new)));
+                                                          .map(ii -> {
+                                                              if (ii instanceof SimpleItem s) {
+                                                                  return s.getItemStack(1);
+                                                              }
+                                                              return ItemStack.EMPTY;
+                                                          })
+                                                          .toArray(ItemStack[]::new)));
                 }
             }
             if (isEmpty(inputs)) {
                 return;
             }
-            fr.register(new ShapelessRecipes("", out,inputs).setRegistryName(OnlyOneItem.MOD_ID, NAME));
+            fr.register(new ShapelessRecipes("", out, inputs).setRegistryName(OnlyOneItem.MOD_ID, NAME));
         }
     }
 
-    private boolean isEmpty(Collection<Ingredient> inputs){
-        if (inputs.isEmpty())return true;
+    private boolean isEmpty(Collection<Ingredient> inputs) {
+        if (inputs.isEmpty()) return true;
         for (Ingredient input : inputs) {
-            if (input != Ingredient.EMPTY){
+            if (input != Ingredient.EMPTY) {
                 return false;
             }
         }
@@ -218,10 +217,10 @@ public class RecipeSignature {
     private String getRecipeName(ItemStack stack) {
         ResourceLocation rl;
         return (shaped ? "shaped" : "shapeless")
-                + "-"
-                + ((rl = stack.getItem().getRegistryName()) == null ? "" : rl.getNamespace())
-                + "-"
-                + hashCode;
+            + "-"
+            + ((rl = stack.getItem().getRegistryName()) == null ? "" : rl.getNamespace())
+            + "-"
+            + hashCode;
     }
 
     @Override
@@ -231,12 +230,12 @@ public class RecipeSignature {
         RecipeSignature that = (RecipeSignature) o;
         if (shaped) {
             return outputAmount == that.outputAmount &&
-                    Objects.equals(outputSignature, that.outputSignature) &&
-                    Objects.equals(inputSignatures, that.inputSignatures);
+                Objects.equals(outputSignature, that.outputSignature) &&
+                Objects.equals(inputSignatures, that.inputSignatures);
         } else {
             return outputAmount == that.outputAmount &&
-                    Objects.equals(outputSignature, that.outputSignature) &&
-                    Objects.equals(cleanInputSignatures, that.cleanInputSignatures);
+                Objects.equals(outputSignature, that.outputSignature) &&
+                Objects.equals(cleanInputSignatures, that.cleanInputSignatures);
         }
     }
 
@@ -246,7 +245,7 @@ public class RecipeSignature {
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         return outputSignature.toString() + inputSignatures + shaped;
     }
 

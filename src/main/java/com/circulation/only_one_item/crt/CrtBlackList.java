@@ -19,28 +19,28 @@ public class CrtBlackList {
     public static final Set<BlackMatchItem> list = new ObjectOpenHashSet<>();
 
     @ZenMethod
-    public static void addMatchItem(IItemStack stack){
+    public static void addMatchItem(IItemStack stack) {
         list.add(BlackMatchItem.getInstance(CraftTweakerMC.getItemStack(stack)));
     }
 
     @ZenMethod
-    public static void addMatchItem(IOreDictEntry oreDictEntry){
+    public static void addMatchItem(IOreDictEntry oreDictEntry) {
         list.add(BlackMatchItem.getInstance(Type.OreDict, oreDictEntry.getName()));
     }
 
     @ZenMethod
-    public static void addMatchItem(String modid){
+    public static void addMatchItem(String modid) {
         list.add(BlackMatchItem.getInstance(Type.ModID, modid));
     }
 
     @ZenMethod
-    public static void addMatchItem(Object... matchs){
+    public static void addMatchItem(Object... matchs) {
         for (Object match : matchs) {
-            if (match instanceof IOreDictEntry iOreDictEntry){
+            if (match instanceof IOreDictEntry iOreDictEntry) {
                 addMatchItem(iOreDictEntry);
             } else if (match instanceof IItemStack stack) {
                 addMatchItem(stack);
-            } else if (match instanceof String modid){
+            } else if (match instanceof String modid) {
                 addMatchItem(modid);
             }
         }

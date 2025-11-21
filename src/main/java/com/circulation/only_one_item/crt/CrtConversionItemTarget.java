@@ -28,36 +28,36 @@ public class CrtConversionItemTarget {
     private final String targetID;
     private final int targetMeta;
 
-    public CrtConversionItemTarget(String id, int meta){
+    public CrtConversionItemTarget(String id, int meta) {
         this.targetID = id;
         this.targetMeta = meta;
     }
 
     @ZenMethod
-    public static CrtConversionItemTarget create(IItemStack target){
+    public static CrtConversionItemTarget create(IItemStack target) {
         if (target == null) {
             var i = SimpleItem.getInstance(ItemStack.EMPTY);
-            return new CrtConversionItemTarget(i.getItemID(),i.getMeta());
+            return new CrtConversionItemTarget(i.getItemID(), i.getMeta());
         }
         return new CrtConversionItemTarget(target.getDefinition().getId(), target.getMetadata());
     }
 
     @ZenMethod
-    public CrtConversionItemTarget addMatchItem(IItemStack stack){
+    public CrtConversionItemTarget addMatchItem(IItemStack stack) {
         matchItems.add(MatchItem.getInstance(CraftTweakerMC.getItemStack(stack)));
         return this;
     }
 
     @ZenMethod
-    public CrtConversionItemTarget addMatchItem(IOreDictEntry oreDictEntry){
+    public CrtConversionItemTarget addMatchItem(IOreDictEntry oreDictEntry) {
         matchItems.add(MatchItem.getInstance(oreDictEntry.getName()));
         return this;
     }
 
     @ZenMethod
-    public CrtConversionItemTarget addMatchItem(Object... odOrItems){
+    public CrtConversionItemTarget addMatchItem(Object... odOrItems) {
         for (Object odOrItem : odOrItems) {
-            if (odOrItem instanceof IOreDictEntry iOreDictEntry){
+            if (odOrItem instanceof IOreDictEntry iOreDictEntry) {
                 addMatchItem(iOreDictEntry);
             } else if (odOrItem instanceof IItemStack stack) {
                 addMatchItem(stack);
@@ -67,7 +67,7 @@ public class CrtConversionItemTarget {
     }
 
     @ZenMethod
-    public void register(){
-        list.add(new ItemConversionTarget(targetID,targetMeta).setMatchItem(matchItems));
+    public void register() {
+        list.add(new ItemConversionTarget(targetID, targetMeta).setMatchItem(matchItems));
     }
 }

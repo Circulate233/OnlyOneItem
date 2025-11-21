@@ -12,11 +12,10 @@ import java.util.Set;
 @Getter
 public final class FluidConversionTarget {
 
+    private final String targetID;
     private Set<String> matchFluids;
 
-    private final String targetID;
-
-    public FluidConversionTarget(String targetID){
+    public FluidConversionTarget(String targetID) {
         this.targetID = targetID;
     }
 
@@ -25,16 +24,16 @@ public final class FluidConversionTarget {
         return this;
     }
 
-    public FluidConversionTarget addMatchFluid(String... stacks){
-        if (matchFluids == null){
+    public FluidConversionTarget addMatchFluid(String... stacks) {
+        if (matchFluids == null) {
             matchFluids = new ObjectOpenHashSet<>();
         }
         matchFluids.addAll(Arrays.asList(stacks));
         return this;
     }
 
-    public FluidConversionTarget addMatchFluid(FluidStack... stacks){
-        if (matchFluids == null){
+    public FluidConversionTarget addMatchFluid(FluidStack... stacks) {
+        if (matchFluids == null) {
             matchFluids = new ObjectOpenHashSet<>();
         }
         for (FluidStack stack : stacks) {

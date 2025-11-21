@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.Unique;
 
 import java.util.HashMap;
 
-@Mixin(value = RecipeHandler.Recipe.class,remap = false)
+@Mixin(value = RecipeHandler.Recipe.class, remap = false)
 public abstract class MixinMekanismRecipe<INPUT extends MachineInput<INPUT>, OUTPUT extends MachineOutput<OUTPUT>, RECIPE extends MachineRecipe<INPUT, OUTPUT, RECIPE>> implements OOIMekRecipe {
 
     @Shadow

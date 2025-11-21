@@ -8,10 +8,10 @@ import java.util.Objects;
 @Desugar
 public record MatchItem(String oreName, int meta, String id) {
 
-    public MatchItem(String oreName, int meta, String id){
+    public MatchItem(String oreName, int meta, String id) {
         this.oreName = oreName;
         this.meta = meta;
-        if (oreName == null && id == null){
+        if (oreName == null && id == null) {
             this.id = "";
         } else {
             this.id = id;
@@ -26,22 +26,22 @@ public record MatchItem(String oreName, int meta, String id) {
         return matchItems;
     }
 
-    public static MatchItem getInstance(String id,int meta) {
-        return new MatchItem(null,meta,id);
+    public static MatchItem getInstance(String id, int meta) {
+        return new MatchItem(null, meta, id);
     }
 
-    public static MatchItem getInstance(String oreName){
-        return new MatchItem(oreName,0,null);
+    public static MatchItem getInstance(String oreName) {
+        return new MatchItem(oreName, 0, null);
     }
 
     public static MatchItem getInstance(ItemStack stack) {
         var id = stack.getItem().getRegistryName();
-        return new MatchItem(null,stack.getMetadata(),id == null ? null : id.toString());
+        return new MatchItem(null, stack.getMetadata(), id == null ? null : id.toString());
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)return true;
+        if (this == o) return true;
         if (o instanceof MatchItem matchItem) {
             if (oreName != null) {
                 return oreName.equals(matchItem.oreName);
@@ -53,8 +53,8 @@ public record MatchItem(String oreName, int meta, String id) {
     }
 
     @Override
-    public int hashCode(){
-        return Objects.hash(oreName,meta,id);
+    public int hashCode() {
+        return Objects.hash(oreName, meta, id);
     }
 
 }

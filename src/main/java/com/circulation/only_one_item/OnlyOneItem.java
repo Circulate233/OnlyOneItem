@@ -18,7 +18,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 
 @Mod(modid = OnlyOneItem.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION,
-        dependencies = "required-after:mixinbooter@[8.0,);"
+    dependencies = "required-after:mixinbooter@[8.0,);"
 )
 public class OnlyOneItem {
     public static final String MOD_ID = Tags.MOD_ID;
