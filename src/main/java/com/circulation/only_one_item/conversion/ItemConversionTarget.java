@@ -3,6 +3,7 @@ package com.circulation.only_one_item.conversion;
 import com.circulation.only_one_item.util.MatchItem;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.Getter;
+import lombok.ToString;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
@@ -10,6 +11,7 @@ import java.util.Collections;
 import java.util.Set;
 
 @Getter
+@ToString
 public final class ItemConversionTarget {
     private final String targetID;
     private final int targetMeta;

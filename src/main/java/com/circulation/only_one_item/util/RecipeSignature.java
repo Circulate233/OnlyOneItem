@@ -187,14 +187,19 @@ public class RecipeSignature {
                         Ingredient.EMPTY
                         : new OreIngredient(od));
                 } else if (input instanceof Multiset<?> items) {
-                    inputs.add(Ingredient.fromStacks(items.stream()
-                                                          .map(ii -> {
-                                                              if (ii instanceof SimpleItem s) {
-                                                                  return s.getItemStack(1);
-                                                              }
-                                                              return ItemStack.EMPTY;
-                                                          })
-                                                          .toArray(ItemStack[]::new)));
+                    inputs.add(
+                        Ingredient
+                            .fromStacks(
+                                items.stream()
+                                     .map(ii -> {
+                                         if (ii instanceof SimpleItem s) {
+                                             return s.getItemStack(1);
+                                         }
+                                         return ItemStack.EMPTY;
+                                     })
+                                     .toArray(ItemStack[]::new)
+                            )
+                    );
                 }
             }
             if (isEmpty(inputs)) {

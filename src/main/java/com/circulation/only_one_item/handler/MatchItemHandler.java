@@ -58,12 +58,11 @@ public class MatchItemHandler {
                 int meta = stack.getMetadata();
                 if (rl == null) continue;
                 if ((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
-                    || finalMODIDBlackSet.contains(rl.getNamespace())) {
-                    ods.add(stack);
+                    || finalMODIDBlackSet.contains(rl.getNamespace())
+                    || allTarget.contains(SimpleItem.getInstance(stack))) {
+                    continue;
                 }
-                if (allTarget.contains(SimpleItem.getInstance(stack))) {
-                    ods.add(stack);
-                }
+                ods.add(stack);
             }
         });
 
@@ -183,13 +182,12 @@ public class MatchItemHandler {
         list.add(new WeakReference<>(i));
     }
 
-    public static void addTargetItem(ResourceLocation rl, int meta, ItemConversionTarget target) {
+    public static void addTargetItem(ResourceLocation rl, int meta, ItemConversionTarget t) {
+        if (allTarget.contains(SimpleItem.getInstance(rl, meta))) return;
         itemIdToTargetMap
             .computeIfAbsent(rl, k -> new Int2ObjectOpenHashMap<>())
-            .put(meta, target);
-        finalItemBlackMap
-            .computeIfAbsent(rl, k -> new IntOpenHashSet())
-            .add(meta);
+            .put(meta, t);
+        allTarget.add(SimpleItem.getInstance(t.getTargetID(), t.getTargetMeta()));
     }
 
     public static void onOreRegister(OreDictionary.OreRegisterEvent event) {
@@ -267,7 +265,6 @@ public class MatchItemHandler {
 
     private static void Init(List<ItemConversionTarget> items) {
         for (ItemConversionTarget t : items) {
-            allTarget.add(SimpleItem.getInstance(t.getTargetID(), t.getTargetMeta()));
             for (MatchItem matchItem : t.getMatchItems()) {
                 if (matchItem.oreName() != null) {
                     var list = OreDictionary.getOres(matchItem.oreName(), false);
