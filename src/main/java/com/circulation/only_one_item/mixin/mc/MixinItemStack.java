@@ -7,6 +7,7 @@ import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Intrinsic;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,9 +41,6 @@ public abstract class MixinItemStack implements OOIItemStack {
     @Shadow
     public abstract void setCount(int size);
 
-    @Shadow
-    public abstract void setItemDamage(int meta);
-
     @Inject(method = "forgeInit", at = @At("TAIL"), remap = false)
     private void forgeInit(CallbackInfo ci) {
         if (!this.isEmpty()) {
@@ -63,20 +61,17 @@ public abstract class MixinItemStack implements OOIItemStack {
         return ooi$isBeReplaced;
     }
 
-    @Unique
-    @Override
+    @Intrinsic
     public void ooi$init() {
         ooi$init = true;
     }
 
-    @Unique
-    @Override
+    @Intrinsic
     public ItemStack ooi$getThis() {
         return (ItemStack) (Object) this;
     }
 
-    @Unique
-    @Override
+    @Intrinsic
     public void ooi$ooiInit() {
         ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
 
@@ -97,5 +92,11 @@ public abstract class MixinItemStack implements OOIItemStack {
         if (!ooi$init) {
             MatchItemHandler.addPreItemStack(this);
         }
+    }
+
+    @Intrinsic
+    public void setItem(Item item) {
+        this.item = item;
+        this.delegate = item.delegate;
     }
 }

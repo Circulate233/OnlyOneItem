@@ -33,9 +33,6 @@ public class OnlyOneItem {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(new OreDictionaryHandler());
-        if (Loader.isModLoaded("unidict")) {
-            LOGGER.warn("OnlyOneItem and UniDict are incompatible, which may cause some errors to occur!");
-        }
         try {
             OOIConfig.readConfig();
         } catch (IOException ignored) {
