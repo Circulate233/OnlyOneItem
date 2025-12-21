@@ -50,7 +50,19 @@ public class MatchItemHandler {
     public static void preItemStackInit() {
         odToTargetMap.forEach((od,i) -> {
             var ods = OreDictionary.getOres(od);
+            var listC = new ObjectArrayList<>(ods);
             ods.clear();
+            for (ItemStack stack : listC) {
+                Item item = stack.getItem();
+                ResourceLocation rl = item.getRegistryName();
+                int meta = stack.getMetadata();
+                if (rl == null) continue;
+                if ((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
+                    || finalMODIDBlackSet.contains(rl.getNamespace())
+                    || allTarget.contains(SimpleItem.getInstance(stack))) {
+                    ods.add(stack);
+                }
+            }
             ods.add(i.getItemStack());
         });
 
