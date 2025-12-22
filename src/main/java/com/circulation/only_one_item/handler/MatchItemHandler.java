@@ -110,7 +110,7 @@ public class MatchItemHandler {
     public static boolean isModify(Multiset<SimpleItem> set) {
         for (SimpleItem item : set) {
             ResourceLocation ii;
-            if ((itemIdToTargetMap.containsKey(ii = item.getItemRL())
+            if ((itemIdToTargetMap.containsKey(ii = item.getRegistryName())
                 && itemIdToTargetMap.get(ii).containsKey(item.getMeta()))
                 || allTarget.contains(item)) {
                 return true;
@@ -274,7 +274,7 @@ public class MatchItemHandler {
                             ResourceLocation rl = item.getRegistryName();
                             int meta = stack.getMetadata();
                             if (rl == null) return false;
-                            return !allTarget.contains(SimpleItem.getInstance(stack))
+                            return !allTarget.contains(SimpleItem.getNoNBTInstance(stack))
                                 && !((finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
                                 || finalMODIDBlackSet.contains(rl.getNamespace()));
                         })

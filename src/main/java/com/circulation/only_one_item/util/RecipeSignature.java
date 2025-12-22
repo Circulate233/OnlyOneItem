@@ -4,7 +4,8 @@ import com.circulation.only_one_item.OnlyOneItem;
 import com.circulation.only_one_item.handler.MatchItemHandler;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import net.minecraft.item.ItemStack;
@@ -24,7 +25,6 @@ import net.minecraftforge.registries.RegistryManager;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 public class RecipeSignature {
@@ -67,13 +67,13 @@ public class RecipeSignature {
         int ii = 0;
         for (Ingredient ingredient : ingredients) {
             ItemStack[] matching = ingredient.getMatchingStacks();
-            Map<Integer, Integer> map = new Object2ObjectOpenHashMap<>();
+            Int2IntMap map = new Int2IntOpenHashMap();
             if (isOD(map, signatures, matching)) {
                 String odName = "";
                 int max = 0;
-                for (Map.Entry<Integer, Integer> integerIntegerEntry : map.entrySet()) {
-                    var od = integerIntegerEntry.getKey();
-                    var i = integerIntegerEntry.getValue();
+                for (var integerIntegerEntry : map.int2IntEntrySet()) {
+                    var od = integerIntegerEntry.getIntKey();
+                    var i = integerIntegerEntry.getIntValue();
 
                     if (i > max) {
                         max = i;
@@ -123,7 +123,7 @@ public class RecipeSignature {
         return true;
     }
 
-    private boolean isOD(Map<Integer, Integer> map, List<Object> signatures, ItemStack[] matching) {
+    private boolean isOD(Int2IntMap map, List<Object> signatures, ItemStack[] matching) {
         for (ItemStack stack : matching) {
             var ods = stack.isEmpty() ? new int[0] : OreDictionary.getOreIDs(stack);
             if (ods.length == 0) {
@@ -141,9 +141,10 @@ public class RecipeSignature {
                     }
                 }
                 return false;
-            }
-            for (int oreID : ods) {
-                map.put(oreID, map.getOrDefault(oreID, 0) + 1);
+            } else {
+                for (int oreID : ods) {
+                    map.put(oreID, map.get(oreID) + 1);
+                }
             }
         }
         return true;
