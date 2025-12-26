@@ -17,5 +17,5 @@ public interface OOIItemStack {
 
     ItemStack ooi$getThis();
 
-    void setItem(Item item);
+    void ooi$setItem(Item item);
 }

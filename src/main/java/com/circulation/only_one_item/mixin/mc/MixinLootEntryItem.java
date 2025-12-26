@@ -28,7 +28,7 @@ public class MixinLootEntryItem {
     public void addLoot(Collection<ItemStack> stacks, Random rand, LootContext context, CallbackInfo ci, @Local(ordinal = 0) ItemStack itemstack) {
         OOIItemStack i = OOIItemStack.forItem(itemstack);
         if (i.ooi$isBeReplaced()) {
-            i.setItem(this.item);
+            i.ooi$setItem(this.item);
         }
     }
 }

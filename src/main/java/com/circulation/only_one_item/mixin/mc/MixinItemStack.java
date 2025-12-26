@@ -95,7 +95,7 @@ public abstract class MixinItemStack implements OOIItemStack {
     }
 
     @Intrinsic
-    public void setItem(Item item) {
+    public void ooi$setItem(Item item) {
         this.item = item;
         this.delegate = item.delegate;
     }
