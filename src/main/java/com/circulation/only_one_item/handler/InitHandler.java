@@ -8,6 +8,7 @@ import net.minecraftforge.fml.common.Optional;
 public class InitHandler {
 
     public static void allPreInit() {
+        MatchFluidHandler.lock();
         MatchItemHandler.preItemStackInit();
         MatchFluidHandler.preFluidStackInit();
 

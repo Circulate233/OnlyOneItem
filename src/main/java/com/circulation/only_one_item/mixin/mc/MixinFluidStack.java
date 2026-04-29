@@ -13,17 +13,16 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
 @Mixin(FluidStack.class)
-
 public abstract class MixinFluidStack implements OOIFluidStack {
 
     @Unique
     private static boolean ooi$init = false;
     @Unique
-    private static Method ooi$delegates;
+    private static MethodHandle ooi$delegates;
     @Shadow(remap = false)
     private IRegistryDelegate<Fluid> fluidDelegate;
 
@@ -32,16 +31,17 @@ public abstract class MixinFluidStack implements OOIFluidStack {
         if (ooi$delegates == null) {
             Class<?> clazz = FluidRegistry.class;
             try {
-                ooi$delegates = clazz.getDeclaredMethod("makeDelegate", Fluid.class);
-            } catch (NoSuchMethodException ignored) {
+                ooi$delegates = MethodHandles.lookup().unreflect(clazz.getDeclaredMethod("makeDelegate", Fluid.class));
+            } catch (NoSuchMethodException | IllegalAccessException ignored) {
 
             }
         }
         try {
             if (ooi$delegates != null) {
-                return (IRegistryDelegate<Fluid>) ooi$delegates.invoke(null, fluid);
+                return (IRegistryDelegate<Fluid>) ooi$delegates.invoke(fluid);
             }
-        } catch (InvocationTargetException | IllegalAccessException ignored) {
+        } catch (Throwable ignored) {
+
         }
         return null;
     }

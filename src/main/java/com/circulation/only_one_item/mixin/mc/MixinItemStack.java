@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ItemStack.class)
 public abstract class MixinItemStack implements OOIItemStack {
@@ -31,6 +32,10 @@ public abstract class MixinItemStack implements OOIItemStack {
     private net.minecraftforge.registries.IRegistryDelegate<Item> delegate;
     @Unique
     private boolean ooi$isBeReplaced = false;
+    @Unique
+    private Item ooi$originalItem;
+    @Unique
+    private int ooi$originalMeta;
 
     @Shadow
     public abstract Item getItem();
@@ -42,13 +47,23 @@ public abstract class MixinItemStack implements OOIItemStack {
     public abstract void setCount(int size);
 
     @Inject(method = "forgeInit", at = @At("TAIL"), remap = false)
-    private void forgeInit(CallbackInfo ci) {
+    private void ooiInit(CallbackInfo ci) {
         if (!this.isEmpty()) {
             ooi$ooiInit();
         }
     }
 
-    @Inject(method = "setItemDamage", at = @At("TAIL"), remap = false)
+    @Inject(method = "copy", at = @At("TAIL"))
+    private void copy(CallbackInfoReturnable<ItemStack> cir) {
+        OOIItemStack itemStack = OOIItemStack.forItem(cir.getReturnValue());
+        if (!ooi$init) {
+            MatchItemHandler.addPreItemStack(itemStack);
+        } else {
+            itemStack.ooi$ooiInit();
+        }
+    }
+
+    @Inject(method = "setItemDamage", at = @At("TAIL"))
     private void setMateData(int meta, CallbackInfo ci) {
         if (this.getItem().getHasSubtypes()) {
             ooi$ooiInit();
@@ -73,30 +88,35 @@ public abstract class MixinItemStack implements OOIItemStack {
 
     @Intrinsic
     public void ooi$ooiInit() {
-        ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
-
-        if (target != null) {
-            var item = target.getTarget();
-            if (item != null) {
-                if (item == Items.AIR) {
-                    this.setCount(0);
-                } else {
-                    this.item = item;
-                    delegate = item.delegate;
-                    itemDamage = target.getTargetMeta();
-                }
-                ooi$isBeReplaced = true;
-                return;
-            }
-        }
         if (!ooi$init) {
             MatchItemHandler.addPreItemStack(this);
+        } else {
+            ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
+
+            if (target != null) {
+                Item targetItem = target.getTarget();
+                if (targetItem != null) {
+                    ooi$originalItem = this.item;
+                    ooi$originalMeta = itemDamage;
+                    if (targetItem == Items.AIR) {
+                        this.setCount(0);
+                    } else {
+                        this.item = targetItem;
+                        delegate = targetItem.delegate;
+                        itemDamage = target.getTargetMeta();
+                    }
+                    ooi$isBeReplaced = true;
+                }
+            }
         }
     }
 
     @Intrinsic
-    public void ooi$setItem(Item item) {
-        this.item = item;
-        this.delegate = item.delegate;
+    public void ooi$restoreOriginalItem() {
+        if (ooi$originalItem != null && this.item != ooi$originalItem) {
+            this.item = ooi$originalItem;
+            this.delegate = ooi$originalItem.delegate;
+            this.itemDamage = ooi$originalMeta;
+        }
     }
 }

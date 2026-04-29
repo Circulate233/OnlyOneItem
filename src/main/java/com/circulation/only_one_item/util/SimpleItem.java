@@ -11,39 +11,27 @@ import net.minecraft.util.ResourceLocation;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 @ToString
 public final class SimpleItem {
 
+    public static final SimpleItem empty = new SimpleItem(ItemStack.EMPTY);
+    private static final Map<ResourceLocation, CachedMetaItems> noNbtCache = new ConcurrentHashMap<>();
     private final ResourceLocation item;
     @Getter
     private final int meta;
-    public static final SimpleItem empty = new SimpleItem(ItemStack.EMPTY);
     private final int hashCode;
-    private static final NBTTagCompound NullNbt = new NBTTagCompound() {
-        @Override
-        public boolean equals(Object nbt) {
-            return nbt == this;
-        }
-
-        @Override
-        public int hashCode() {
-            return Integer.MIN_VALUE;
-        }
-    };
-    private static final Map<ResourceLocation, Int2ObjectOpenHashMapS> chane = new ConcurrentHashMap<>();
-    private static final Function<ResourceLocation, Int2ObjectOpenHashMapS> intMap = item -> new Int2ObjectOpenHashMapS();
     private final NBTTagCompound nbt;
+
     private SimpleItem(ResourceLocation item, int meta, NBTTagCompound nbt) {
         this.item = item;
         this.meta = meta;
         this.nbt = nbt;
-        this.hashCode = Objects.hash(item, meta, nbt);
+        this.hashCode = computeHash(item, meta, nbt);
     }
 
     private SimpleItem(ItemStack stack) {
-        this(stack.getItem().getRegistryName(), stack.getItemDamage(), stack.getTagCompound());
+        this(stack.getItem().getRegistryName(), stack.getItemDamage(), copyNBT(stack.getTagCompound()));
     }
 
     public static SimpleItem getInstance(final String rl, final int meta) {
@@ -51,24 +39,36 @@ public final class SimpleItem {
     }
 
     public static SimpleItem getInstance(final ResourceLocation rl, final int meta) {
-        return chane.computeIfAbsent(rl, intMap)
-                    .computeIfAbsent(meta)
-                    .computeIfAbsent(NullNbt, n -> new SimpleItem(rl, meta, null));
+        return noNbtCache.computeIfAbsent(rl, CachedMetaItems::new)
+                         .computeIfAbsent(meta);
     }
 
     public static SimpleItem getInstance(final ItemStack stack) {
         if (stack.isEmpty()) return empty;
         var nbt = stack.getTagCompound();
-        return chane.computeIfAbsent(stack.getItem().getRegistryName(), intMap)
-                    .computeIfAbsent(stack.getItemDamage())
-                    .computeIfAbsent(nbt == null ? NullNbt : nbt, n -> new SimpleItem(stack));
+        if (nbt == null || nbt.isEmpty()) {
+            return getNoNBTInstance(stack);
+        }
+        return new SimpleItem(stack);
     }
 
     public static SimpleItem getNoNBTInstance(final ItemStack stack) {
         if (stack.isEmpty()) return empty;
-        return chane.computeIfAbsent(stack.getItem().getRegistryName(), intMap)
-                    .computeIfAbsent(stack.getItemDamage())
-                    .computeIfAbsent(NullNbt, n -> new SimpleItem(stack));
+        return getInstance(stack.getItem().getRegistryName(), stack.getItemDamage());
+    }
+
+    private static NBTTagCompound copyNBT(NBTTagCompound nbt) {
+        if (nbt == null || nbt.isEmpty()) {
+            return null;
+        }
+        return nbt.copy();
+    }
+
+    private static int computeHash(ResourceLocation item, int meta, NBTTagCompound nbt) {
+        int result = item == null ? 0 : item.hashCode();
+        result = 31 * result + meta;
+        result = 31 * result + (nbt == null ? 0 : nbt.hashCode());
+        return result;
     }
 
     public Item getItem() {
@@ -86,7 +86,7 @@ public final class SimpleItem {
     public ItemStack getItemStack(int amount) {
         var i = new ItemStack(getItem(), amount, meta);
         if (nbt != null && !nbt.isEmpty()) {
-            i.setTagCompound(nbt);
+            i.setTagCompound(nbt.copy());
         }
         return i;
     }
@@ -107,15 +107,19 @@ public final class SimpleItem {
         return hashCode;
     }
 
-    private static class Int2ObjectOpenHashMapS extends Int2ObjectOpenHashMap<Map<NBTTagCompound, SimpleItem>> {
+    private static class CachedMetaItems extends Int2ObjectOpenHashMap<SimpleItem> {
+        private final ResourceLocation item;
 
-        public Map<NBTTagCompound, SimpleItem> computeIfAbsent(int key) {
-            Map<NBTTagCompound, SimpleItem> v;
+        private CachedMetaItems(ResourceLocation item) {
+            this.item = item;
+        }
 
+        public SimpleItem computeIfAbsent(int key) {
+            SimpleItem v;
             if ((v = get(key)) == null) {
                 synchronized (this) {
                     if ((v = get(key)) == null) {
-                        v = new ConcurrentHashMap<>();
+                        v = new SimpleItem(item, key, null);
                         put(key, v);
                     }
                 }

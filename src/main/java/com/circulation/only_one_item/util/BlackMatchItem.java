@@ -43,6 +43,11 @@ public record BlackMatchItem(Type type, String name, int meta) {
 
     @Override
     public int hashCode() {
-        return Objects.hash(type, name, meta);
+        int result = type == null ? 0 : type.hashCode();
+        result = 31 * result + (name == null ? 0 : name.hashCode());
+        if (type == Type.Item) {
+            result = 31 * result + meta;
+        }
+        return result;
     }
 }

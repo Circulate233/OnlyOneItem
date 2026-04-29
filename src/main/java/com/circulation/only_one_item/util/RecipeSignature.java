@@ -22,7 +22,6 @@ import net.minecraftforge.registries.ForgeRegistry;
 import net.minecraftforge.registries.GameData;
 import net.minecraftforge.registries.RegistryManager;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -51,23 +50,38 @@ public class RecipeSignature {
         if (shaped) {
             height = ((IShapedRecipe) recipe).getRecipeHeight();
             width = ((IShapedRecipe) recipe).getRecipeWidth();
-            this.hashCode = Objects.hash(outputSignature, outputAmount, inputSignatures);
+            this.hashCode = computeShapedHash(outputSignature, outputAmount, inputSignatures, height, width);
         } else {
             height = 0;
             width = 0;
-            this.hashCode = Objects.hash(outputSignature, outputAmount, cleanInputSignatures);
+            this.hashCode = computeShapelessHash(outputSignature, outputAmount, cleanInputSignatures);
         }
         obs = null;
+    }
+
+    private static int computeShapedHash(SimpleItem outputSignature, int outputAmount, List<Object> inputSignatures, int height, int width) {
+        int result = outputSignature.hashCode();
+        result = 31 * result + outputAmount;
+        result = 31 * result + inputSignatures.hashCode();
+        result = 31 * result + height;
+        result = 31 * result + width;
+        return result;
+    }
+
+    private static int computeShapelessHash(SimpleItem outputSignature, int outputAmount, Multiset<Object> cleanInputSignatures) {
+        int result = outputSignature.hashCode();
+        result = 31 * result + outputAmount;
+        result = 31 * result + cleanInputSignatures.hashCode();
+        return result;
     }
 
     private List<Object> createInputSignatures(IRecipe recipe) {
         List<Ingredient> ingredients = recipe.getIngredients();
         List<Object> signatures = new ObjectArrayList<>();
 
-        int ii = 0;
         for (Ingredient ingredient : ingredients) {
             ItemStack[] matching = ingredient.getMatchingStacks();
-            Int2IntMap map = new Int2IntOpenHashMap();
+            Int2IntMap map = new Int2IntOpenHashMap(matching.length);
             if (isOD(map, signatures, matching)) {
                 String odName = "";
                 int max = 0;
@@ -93,10 +107,7 @@ public class RecipeSignature {
                         }
                     }
                 } else {
-                    Multiset<SimpleItem> set = HashMultiset.create();
-                    Arrays.stream(matching)
-                          .map(SimpleItem::getInstance)
-                          .forEach(set::add);
+                    Multiset<SimpleItem> set = createItemSet(matching);
                     signatures.add(set);
                     cleanInputSignatures.add(set);
                     if (!this.isModify) this.isModify = MatchItemHandler.isModify(set);
@@ -127,10 +138,7 @@ public class RecipeSignature {
         for (ItemStack stack : matching) {
             var ods = stack.isEmpty() ? new int[0] : OreDictionary.getOreIDs(stack);
             if (ods.length == 0) {
-                Multiset<SimpleItem> set = HashMultiset.create();
-                Arrays.stream(matching)
-                      .map(SimpleItem::getInstance)
-                      .forEach(set::add);
+                Multiset<SimpleItem> set = createItemSet(matching);
                 signatures.add(set);
                 cleanInputSignatures.add(set);
                 if (!this.isModify) this.isModify = MatchItemHandler.isModify(set);
@@ -148,6 +156,14 @@ public class RecipeSignature {
             }
         }
         return true;
+    }
+
+    private Multiset<SimpleItem> createItemSet(ItemStack[] matching) {
+        Multiset<SimpleItem> set = HashMultiset.create(matching.length);
+        for (ItemStack itemStack : matching) {
+            set.add(SimpleItem.getInstance(itemStack));
+        }
+        return set;
     }
 
     public void rebuildRecipe() {
@@ -234,8 +250,11 @@ public class RecipeSignature {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RecipeSignature that = (RecipeSignature) o;
+        if (shaped != that.shaped) return false;
         if (shaped) {
             return outputAmount == that.outputAmount &&
+                height == that.height &&
+                width == that.width &&
                 Objects.equals(outputSignature, that.outputSignature) &&
                 Objects.equals(inputSignatures, that.inputSignatures);
         } else {

@@ -1,6 +1,5 @@
 package com.circulation.only_one_item.util;
 
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 public interface OOIItemStack {
@@ -17,5 +16,5 @@ public interface OOIItemStack {
 
     ItemStack ooi$getThis();
 
-    void ooi$setItem(Item item);
+    void ooi$restoreOriginalItem();
 }

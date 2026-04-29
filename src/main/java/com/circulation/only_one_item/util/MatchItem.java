@@ -3,8 +3,6 @@ package com.circulation.only_one_item.util;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.item.ItemStack;
 
-import java.util.Objects;
-
 @Desugar
 public record MatchItem(String oreName, int meta, String id) {
 
@@ -46,7 +44,7 @@ public record MatchItem(String oreName, int meta, String id) {
             if (oreName != null) {
                 return oreName.equals(matchItem.oreName);
             } else if (id != null) {
-                return id.equals(matchItem.id) && (meta == matchItem.meta || meta == 32767);
+                return id.equals(matchItem.id) && (meta == matchItem.meta || meta == 32767 || matchItem.meta == 32767);
             }
         }
         return false;
@@ -54,7 +52,9 @@ public record MatchItem(String oreName, int meta, String id) {
 
     @Override
     public int hashCode() {
-        return Objects.hash(oreName, meta, id);
+        int result = oreName == null ? 0 : oreName.hashCode();
+        result = 31 * result + (id == null ? 0 : id.hashCode());
+        return result;
     }
 
 }

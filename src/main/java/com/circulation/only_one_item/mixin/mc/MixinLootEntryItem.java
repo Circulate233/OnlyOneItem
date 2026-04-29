@@ -25,10 +25,19 @@ public class MixinLootEntryItem {
     protected Item item;
 
     @Inject(method = "addLoot", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/storage/loot/functions/LootFunction;apply(Lnet/minecraft/item/ItemStack;Ljava/util/Random;Lnet/minecraft/world/storage/loot/LootContext;)Lnet/minecraft/item/ItemStack;", shift = At.Shift.BEFORE))
-    public void addLoot(Collection<ItemStack> stacks, Random rand, LootContext context, CallbackInfo ci, @Local(ordinal = 0) ItemStack itemstack) {
+    public void addLoot(Collection<ItemStack> stacks, Random rand, LootContext context, CallbackInfo ci, @Local(name = "itemstack") ItemStack itemstack) {
         OOIItemStack i = OOIItemStack.forItem(itemstack);
         if (i.ooi$isBeReplaced()) {
-            i.ooi$setItem(this.item);
+            i.ooi$restoreOriginalItem();
+        }
+    }
+
+    @Inject(method = "addLoot", at = @At(value = "INVOKE", target = "Lnet/minecraft/item/ItemStack;isEmpty()Z", shift = At.Shift.BEFORE))
+    public void addLootAfterFunctions(Collection<ItemStack> stacks, Random rand, LootContext context, CallbackInfo ci, @Local(name = "itemstack") ItemStack itemstack) {
+        OOIItemStack i = OOIItemStack.forItem(itemstack);
+        if (i.ooi$isBeReplaced()) {
+            i.ooi$restoreOriginalItem();
+            i.ooi$ooiInit();
         }
     }
 }
