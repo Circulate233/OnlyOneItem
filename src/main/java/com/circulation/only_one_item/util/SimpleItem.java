@@ -39,6 +39,7 @@ public final class SimpleItem {
     }
 
     public static SimpleItem getInstance(final ResourceLocation rl, final int meta) {
+        if (rl == null) return empty;
         return noNbtCache.computeIfAbsent(rl, CachedMetaItems::new)
                          .computeIfAbsent(meta);
     }
