@@ -1,5 +1,6 @@
 package com.circulation.only_one_item.util;
 
+import com.circulation.only_one_item.OnlyOneItem;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.ToString;
@@ -55,6 +56,7 @@ public final class SimpleItem {
 
     public static SimpleItem getNoNBTInstance(final ItemStack stack) {
         if (stack.isEmpty()) return empty;
+        if (stack.getItem().getRegistryName() == null) OnlyOneItem.LOGGER.error("{} RegistryName does not exist",stack.getItem().getClass().getName());
         return getInstance(stack.getItem().getRegistryName(), stack.getItemDamage());
     }
 
