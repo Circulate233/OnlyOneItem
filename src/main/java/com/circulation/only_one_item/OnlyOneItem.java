@@ -6,6 +6,7 @@ import com.circulation.only_one_item.handler.OreDictionaryHandler;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -30,6 +31,10 @@ public class OnlyOneItem {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(new OreDictionaryHandler());
+    }
+
+    @Mod.EventHandler
+    public void init(FMLInitializationEvent event) {
         OOIConfig.readConfig();
     }
 
