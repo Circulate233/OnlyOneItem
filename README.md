@@ -157,6 +157,14 @@ for od in oreDict.entries {
 特别的，这个mod还会处理重复的工作台配方，不同的mod可能会出现不同的铜锭合成相同的铜块，
 这个mod会自动的分析这个情况，合并所有重复的配方并且将输入全部替换为矿物辞典，这是自动的，不需要进行额外配置
 
+如果整合包需要由 CraftTweaker 或其他配方管理器控制配方删除，可以在 `config/only_one_item.cfg` 中关闭这个步骤：
+
+```
+recipes {
+    B:clearDuplicateRecipes=false
+}
+```
+
 ## English
 
 Here's the English translation of the provided mod description and configuration details:
@@ -312,6 +320,14 @@ keynotes
 Recipe Merging: After unification, all recipesusing replaced items/fluids will use the unified target.
 
 Automatic Duplicate Handling: Duplicate workstation recipes (e.g., copper ingots -> copper blocks from different mods) are automatically detected and merged with OreDict inputs. No extra config needed!
+
+If a modpack needs CraftTweaker or another recipe manager to control recipe removals, this step can be disabled in `config/only_one_item.cfg`:
+
+```
+recipes {
+    B:clearDuplicateRecipes=false
+}
+```
 
 Caution: Replacing items from certain mods may cause errors. Test replacements thoroughly within your modpack.
 

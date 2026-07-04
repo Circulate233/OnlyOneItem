@@ -41,8 +41,10 @@ public class OnlyOneItem {
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         InitHandler.allPreInit();
-        if (!Loader.isModLoaded("unidict")) {
+        if (!Loader.isModLoaded("unidict") && OOIConfig.clearDuplicateRecipes) {
             MatchItemHandler.clearRecipe();
+        } else if (!OOIConfig.clearDuplicateRecipes) {
+            LOGGER.info("[OOI] Duplicate recipe cleanup is disabled by config.");
         }
     }
 
