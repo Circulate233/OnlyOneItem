@@ -25,6 +25,8 @@ public class OnlyOneItem {
 
     public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
 
+    private static boolean stackInitializationComplete = false;
+
     @Mod.Instance(MOD_ID)
     public static OnlyOneItem instance = null;
 
@@ -40,15 +42,31 @@ public class OnlyOneItem {
 
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
-        InitHandler.allPreInit();
-        if (!Loader.isModLoaded("unidict")) {
+        initializeStacksOnce("OOI postInit");
+        if (!Loader.isModLoaded("unidict") && OOIConfig.clearDuplicateRecipes) {
             MatchItemHandler.clearRecipe();
+        } else if (!OOIConfig.clearDuplicateRecipes) {
+            LOGGER.info("[OOI] Duplicate recipe cleanup is disabled by config.");
         }
     }
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
-        MatchItemHandler.postODProcess();
+        if (OOIConfig.processOreDictionaryAtLoadComplete) {
+            MatchItemHandler.postODProcess();
+        } else {
+            LOGGER.info("[OOI] LoadComplete ore dictionary post-processing is disabled by config.");
+        }
     }
 
+    public static synchronized void initializeStacksOnce(String phase) {
+        if (stackInitializationComplete) {
+            LOGGER.debug("[OOI] Stack initialization already completed, skipping {}.", phase);
+            return;
+        }
+
+        LOGGER.info("[OOI] Initializing stack unification at {}.", phase);
+        InitHandler.allPreInit();
+        stackInitializationComplete = true;
+    }
 }
