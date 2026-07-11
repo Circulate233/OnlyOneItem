@@ -1,6 +1,7 @@
 package com.circulation.only_one_item.handler;
 
 import com.circulation.only_one_item.OOIConfig;
+import com.circulation.only_one_item.OnlyOneItem;
 import com.circulation.only_one_item.conversion.ItemConversionTarget;
 import com.circulation.only_one_item.crt.CrtBlackList;
 import com.circulation.only_one_item.crt.CrtConversionItemTarget;
@@ -29,12 +30,14 @@ import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.Ingredient;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.Optional;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.GameData;
 import net.minecraftforge.registries.RegistryManager;
+import net.minecraftforge.fml.common.Optional;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -162,12 +165,64 @@ public class MatchItemHandler {
 
     public static synchronized void Clear() {
         itemIdToTargetMap.clear();
+        odToTargetMap.clear();
+        allTarget.clear();
         finalMODIDBlackSet.clear();
         finalItemBlackMap.clear();
         finalODBlackSet.clear();
     }
 
     public static synchronized void InitTarget() {
+        Clear();
+        Map<String, ItemConversionTarget> targetsByMatch = new LinkedHashMap<>();
+        Map<String, MatchItem> matchesByKey = new LinkedHashMap<>();
+        Map<String, String> sourcesByMatch = new LinkedHashMap<>();
+
+        for (int index = 0; index < 2; index++) {
+            List<ItemConversionTarget> targets = index == 0 ? OOIConfig.items : CrtConversionItemTarget.list;
+            String source = index == 0 ? "JSON" : "CRT";
+            for (ItemConversionTarget target : targets) {
+                if (target == null || target.getMatchItems() == null || target.getMatchItems().isEmpty()) {
+                    OnlyOneItem.LOGGER.error("[OOI] Invalid {} item mapping", source);
+                    throw new IllegalStateException("[OOI] Invalid " + source + " item mapping");
+                }
+                for (MatchItem matchItem : target.getMatchItems()) {
+                    if (matchItem == null) {
+                        OnlyOneItem.LOGGER.error("[OOI] Null match item in {} mapping {}", source, target.getTargetID());
+                        throw new IllegalStateException("[OOI] Null match item in " + source + " mapping");
+                    }
+                    String key = matchItem.oreName() != null
+                        ? "ore:" + matchItem.oreName()
+                        : "item:" + matchItem.id() + ':' + matchItem.meta();
+                    targetsByMatch.put(key, target);
+                    matchesByKey.put(key, matchItem);
+                    sourcesByMatch.put(key, source);
+                }
+            }
+        }
+
+        Map<String, ItemConversionTarget> finalTargets = new LinkedHashMap<>();
+        for (Map.Entry<String, ItemConversionTarget> entry : targetsByMatch.entrySet()) {
+            ItemConversionTarget target = entry.getValue();
+            if (target.getTarget() == null) {
+                OnlyOneItem.LOGGER.error(
+                    "[OOI] Dropping {} item mapping because target item is not registered: targetID={}, targetMeta={}, match={}",
+                    sourcesByMatch.get(entry.getKey()), target.getTargetID(), target.getTargetMeta(), entry.getKey());
+                continue;
+            }
+            String key = target.getTargetID() + '#' + target.getTargetMeta();
+            ItemConversionTarget finalTarget = finalTargets.get(key);
+            if (finalTarget == null) {
+                finalTarget = new ItemConversionTarget(target.getTargetID(), target.getTargetMeta())
+                    .setMatchItem(new LinkedHashSet<>());
+                finalTargets.put(key, finalTarget);
+            }
+            finalTarget.getMatchItems().add(matchesByKey.get(entry.getKey()));
+        }
+
+        OOIConfig.items.clear();
+        OOIConfig.items.addAll(finalTargets.values());
+        OOIConfig.blackList.addAll(CrtBlackList.list);
         BlackInit(OOIConfig.blackList);
         Init(OOIConfig.items);
     }
@@ -262,6 +317,29 @@ public class MatchItemHandler {
             .get(meta);
     }
 
+    public static Item resolveTargetItem(ItemConversionTarget target, ItemStack source) {
+        if (target == null) {
+            return null;
+        }
+
+        Item targetItem = target.getTarget();
+        if (targetItem != null) {
+            return targetItem;
+        }
+
+        ResourceLocation sourceId = source == null
+            ? null
+            : source.getItem().getRegistryName();
+        int sourceMeta = source == null ? 0 : source.getMetadata();
+        OnlyOneItem.LOGGER.error(
+            "[OOI] Item replacement target is unavailable: sourceID={}, sourceMeta={}, targetID={}, targetMeta={}",
+            sourceId,
+            sourceMeta,
+            target.getTargetID(),
+            target.getTargetMeta());
+        return null;
+    }
+
     private static boolean isPotentiallyModifiedRecipe(IRecipe recipe) {
         for (Ingredient ingredient : recipe.getIngredients()) {
             for (ItemStack stack : ingredient.getMatchingStacks()) {
@@ -304,7 +382,6 @@ public class MatchItemHandler {
                 }
             }
         }
-        items.clear();
     }
 
     private static void BlackInit(Set<BlackMatchItem> blackSet) {
@@ -330,12 +407,12 @@ public class MatchItemHandler {
                 }
             }
         }
-        blackSet.clear();
     }
 
     @Optional.Method(modid = "crafttweaker")
     public static void CrtInit() {
-        BlackInit(CrtBlackList.list);
-        Init(CrtConversionItemTarget.list);
+        OnlyOneItem.LOGGER.debug(
+            "[OOI] CRT item mappings staged: {}, item blacklist entries staged: {}",
+            CrtConversionItemTarget.list.size(), CrtBlackList.list.size());
     }
 }

@@ -124,33 +124,29 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 repositories {
-    flatDir {
-        dirs("lib")
-    }
     maven {
-        url = uri("https://maven.aliyun.com/nexus/content/groups/public/")
-    }
-    maven {
-        url = uri("https://maven.aliyun.com/nexus/content/repositories/jcenter")
+        url = uri("https://maven.aliyun.com/repository/public")
     }
     maven {
         url = uri("https://maven.cleanroommc.com")
     }
     maven {
-        url = uri("https://cfa2.cursemaven.com")
+        url = uri("https://maven.minecraftforge.net/")
     }
     maven {
-        url = uri("https://cursemaven.com")
-    }
-    maven {
-        url = uri("https://maven.blamejared.com/")
-    }
-    maven {
+        name = "SpongePowered Maven"
         url = uri("https://repo.spongepowered.org/maven")
     }
     maven {
-        name = "GeckoLib"
-        url = uri("https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/")
+        name = "CurseMaven"
+        url = uri("https://cursemaven.com")
+        content {
+            includeGroup("curse.maven")
+        }
+    }
+    maven {
+        // CraftTweaker
+        url = uri("https://maven.blamejared.com/")
     }
     maven {
         name = "OvermindDL1 Maven"
@@ -159,6 +155,11 @@ repositories {
             excludeGroup("net.minecraftforge") // missing the `universal` artefact
         }
     }
+    maven {
+        name = "GTNH Maven"
+        url = uri("https://nexus.gtnewhorizons.com/repository/public/")
+    }
+    mavenCentral()
 }
 
 dependencies {
@@ -200,10 +201,6 @@ dependencies {
     annotationProcessor("org.jetbrains:annotations:24.1.0")
     compileOnly("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
-
-    implementation("CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.+")
-    compileOnly(rfg.deobf("curse.maven:had-enough-items-557549:6930666"))
-    compileOnly(rfg.deobf("curse.maven:mekanism-268560:2835175"))
 }
 
 apply from: 'gradle/scripts/dependencies.gradle'

@@ -94,7 +94,7 @@ public abstract class MixinItemStack implements OOIItemStack {
             ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
 
             if (target != null) {
-                Item targetItem = target.getTarget();
+                Item targetItem = MatchItemHandler.resolveTargetItem(target, (ItemStack) (Object) this);
                 if (targetItem != null) {
                     ooi$originalItem = this.item;
                     ooi$originalMeta = itemDamage;
