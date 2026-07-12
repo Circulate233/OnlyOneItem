@@ -20,7 +20,6 @@ public class LateMixinLoader implements ILateMixinLoader {
 
     static {
         addModdedMixinCFG("mixins.only_one_item.crt.json", "crafttweaker");
-        addModdedMixinCFG("mixins.only_one_item.mek.json", "mekanism");
     }
 
     private static boolean modLoaded(final String modID) {
