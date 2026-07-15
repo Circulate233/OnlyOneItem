@@ -37,4 +37,5 @@ dependencies {
     implementation("CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.+")
     implementation(rfg.deobf("curse.maven:mekanism-268560:2835175"))
     implementation(rfg.deobf("curse.maven:had-enough-items-557549:6930666"))
+    implementation(rfg.deobf("curse.maven:industrial-craft-242638:3838713"))
 }
