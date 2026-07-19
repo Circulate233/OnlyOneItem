@@ -1,33 +1,37 @@
-# Only One Item (1.12)
+# Only One Item
 
-Requires mixinbooter version 8.0 or higher
-There may be some minor errors when using UniDicty together
+Only One Item is a Minecraft 1.12.2 mod for reducing duplicate items and fluids in modpacks by redirecting equivalent stacks to a common target. It requires MixinBooter `>= 8.0` at runtime.
+
+The project was inspired by [OneEnoughItem](https://github.com/Tower-of-Sighs/OneEnoughItem). It is not a fork and does not use code from that project. Its purpose overlaps with [UniDict](https://github.com/WanionCane/UniDict), but it is implemented independently.
 
 1. [简体中文](#简体中文)
-2. [English](#English)
+2. [English](#english)
 
 ## 简体中文
-这个mod本身是受到[OneEnoughItem](https://github.com/Tower-of-Sighs/OneEnoughItem)启发而开发的。
-这并不是它的分支，也没有使用它的任何代码。
 
-实质上，这个mod的目的是成为[UniDict](https://github.com/WanionCane/UniDict)的一个替代品，
-用于解决modpack内重复物品过多的问题（我自己的modpack内有足足6种铜矿石！太过分了！）
+### 项目定位
 
-这些物品在功能上完全重复，却使用不同的获取方法，甚至可能用途本该一样但是无法通用。
+Only One Item 在物品或流体栈创建、复制和修改时应用映射，让功能重复但注册名不同的内容可以使用统一目标。它适合用于减少整合包中的重复物品、流体和由此产生的配方碎片。
 
-这个mod可以在物品创建时替换它们，让不同的物品指向同一个物品。
-允许使用config/ooi内的json文件配置，也可以使用CraftTweaker来进行配置（显然，我认为crt更好）
+本项目受到 [OneEnoughItem](https://github.com/Tower-of-Sighs/OneEnoughItem) 启发，但不是其分支，也没有使用其代码。本项目可以作为 [UniDict](https://github.com/WanionCane/UniDict) 的独立替代方案。
 
-对于json:
+### 配置文件
 
-ooi_item.json:
-```
+配置目录是 `config/ooi`，包含以下三个文件：
+
+- `ooi_item.json`：物品和矿辞 source 到目标物品的映射。
+- `ooi_fluid.json`：流体 source 到目标流体的映射。
+- `ooi_item_black_list.json`：不参与物品替换的物品、模组或矿辞。
+
+#### `ooi_item.json`
+
+```json
 [
   {
     "matchItems": [
       {
-        "meta": 0,
-        "id": "minecraft:gold_ingot"
+        "id": "minecraft:gold_ingot",
+        "meta": 0
       },
       {
         "oreName": "ingotGold"
@@ -39,10 +43,27 @@ ooi_item.json:
 ]
 ```
 
-这是一个简单的示例，将minecraft:gold_ingot:0和ingotGold指向了minecraft:gold_ingot:0(当然，我们知道这其实什么都没有做)
+`matchItems` 可以包含具体物品（`id` + `meta`）或矿辞（`oreName`）。上例把 `minecraft:gold_ingot:0` 和 `ingotGold` 枚举出的 source 指向 `minecraft:gold_ingot:0`；目标相同时只是语法示例。
 
-ooi_item_black_list.json:
+#### `ooi_fluid.json`
+
+```json
+[
+  {
+    "matchFluids": [
+      "water",
+      "some_mod:water"
+    ],
+    "targetID": "water"
+  }
+]
 ```
+
+`matchFluids` 和 `targetID` 使用流体注册表名称；最终阶段会检查目标流体是否存在，不存在的目标映射会被丢弃。
+
+#### `ooi_item_black_list.json`
+
+```json
 [
   {
     "type": "Item",
@@ -55,31 +76,32 @@ ooi_item_black_list.json:
   },
   {
     "type": "OreDict",
-    "name": "ingotGlod"
+    "name": "ingotGold"
   }
 ]
 ```
 
-这是另一个示例，这个示例的作用是阻止包含在这个黑名单内的物品被替换，让批量替换时的情况更加可控
+`Item` 按物品 ID 和 meta 排除，`ModID` 按模组 ID 排除，`OreDict` 按矿辞名称排除。黑名单会阻止匹配到的物品或矿辞参与统一。
 
-ooi_fluid.json:
-```
-[
-  {
-    "matchFluids": [
-      "water"
-    ],
-    "targetID": "water"
-  }
-]
-```
-也许你会发现一些mod里的原油，石油，或是更奇怪的流体，它们有相似的作用，通用或是不通用，同样的，你也可以替换它们
+### 注意事项
 
-无论是物品还是流体，替换后的配方将会是直接合并所有配方
+最终有效配置会写回 `config/ooi/ooi_item.json`、`config/ooi/ooi_fluid.json` 和 `config/ooi/ooi_item_black_list.json`。文件会被规范化覆盖，手工注释和原始排版不会保留，编辑前请备份。无效目标会被忽略并记录日志。
 
-对于crt:
+CRT 在本 mod 中主要用于生成或补全这三份 JSON 配置，脚本注册的有效条目会写入 JSON。首次加入或修改 CRT 脚本的那次启动，运行中的替换结果可能不完整或不准确；启动完成后请检查生成的 JSON 并重启游戏或服务端。确认 JSON 无误后，后续启动以 JSON 为准，不要求继续保留 CRT 脚本。
 
-```
+### CraftTweaker API
+
+当前 ZenScript 类名和方法如下：
+
+- `mods.ooi.ConversionItem`：`create(IItemStack)`、`addMatchItem(IItemStack)`、`addMatchItem(IOreDictEntry)`、`addMatchItem(Object...)`、`register()`。
+- `mods.ooi.ConversionFluid`：`create(ILiquidStack)`、`addMatchFluid(String)`、`addMatchFluid(ILiquidStack)`、`addMatchFluid(Object...)`、`register()`。
+- `mods.ooi.BlackList`：`addMatchItem(IItemStack)`、`addMatchItem(IOreDictEntry)`、`addMatchItem(String)`、`addMatchItem(Object...)`。
+
+`ConversionItem` 和 `ConversionFluid` 先用 `addMatch...` 添加 source，再调用 `register()` 提交目标；`BlackList.addMatchItem(...)` 可直接添加黑名单项。
+
+以下脚本可用于批量生成上述 JSON；首次运行请先阅读注意事项。
+
+```zenscript
 import mods.ooi.ConversionItem;
 import mods.ooi.ConversionFluid;
 import mods.ooi.BlackList;
@@ -92,34 +114,36 @@ static modid as string[] = [
     "enderio",
     "tconstruct",
     "ic2",
-    "mets",
+    "mekanism",
     "taiga"
 ];
-function getODItem(od as IOreDictEntry) as IItemStack{
-    if (isNull(od.firstItem))return <minecraft:stone>;
-    var clq as IItemStack = null;
-    for i in 0 to modid.length{
-        for item in od.items{
-            if (item.definition.owner == modid[i]){
-                clq = item;
+
+function getODItem(od as IOreDictEntry) as IItemStack {
+    if (isNull(od.firstItem)) return <minecraft:stone>;
+
+    var selected as IItemStack = null;
+    for i in 0 to modid.length {
+        for item in od.items {
+            if (item.definition.owner == modid[i]) {
+                selected = item;
                 break;
             }
         }
-        if (!isNull(clq))break;
+        if (!isNull(selected)) break;
     }
 
-    return isNull(clq) ? od.firstItem : clq;
-};
+    return isNull(selected) ? od.firstItem : selected;
+}
 
-if (!(<ore:itemSilicon>.empty)){
+if (!(<ore:itemSilicon>.empty)) {
     ConversionItem.create(getODItem(<ore:itemSilicon>))
-            .addMatchItem(<ore:itemSilicon>)
-            .register();
+        .addMatchItem(<ore:itemSilicon>)
+        .register();
 }
 
 for od in oreDict.entries {
     var odName = od.name;
-    if (odName.startsWith("ore") 
+    if (odName.startsWith("ore")
         || odName.startsWith("dust")
         || odName.startsWith("ingot")
         || odName.startsWith("gem")
@@ -127,20 +151,21 @@ for od in oreDict.entries {
         || odName.startsWith("plate")
         || odName.startsWith("gear")
         || odName.startsWith("stick")
-    ){
+    ) {
         ConversionItem.create(getODItem(od))
             .addMatchItem(od)
             .register();
-        if (odName.startsWith("gem")){
+
+        if (odName.startsWith("gem")) {
             val od0 = oreDict.get("block" + odName.substring("gem".length));
-            if (!od0.empty){
+            if (!od0.empty) {
                 ConversionItem.create(getODItem(od0))
                     .addMatchItem(od0)
                     .register();
             }
-        } else if (odName.startsWith("ingot")){
+        } else if (odName.startsWith("ingot")) {
             val od0 = oreDict.get("block" + odName.substring("ingot".length));
-            if (!od0.empty){
+            if (!od0.empty) {
                 ConversionItem.create(getODItem(od0))
                     .addMatchItem(od0)
                     .register();
@@ -150,171 +175,36 @@ for od in oreDict.entries {
 }
 ```
 
-类似于json，crt同样的支持物品和矿物辞典替换，黑名单也可以直接使用modid进行过滤，这里提供一份尽可能通用的crt文件来简单的处理可能遇见的情况
+复杂的批量规则可以使用同一套 API 编写循环或函数。替换某些模组物品可能改变其配方或机器行为，请在目标整合包中验证。
 
-需要注意的是，一些mod的物品被替换可能会导致错误，这需要根据modpack自己判断情况
+### 配方处理
 
-特别的，这个mod还会处理重复的工作台配方，不同的mod可能会出现不同的铜锭合成相同的铜块，
-这个mod会自动的分析这个情况，合并所有重复的配方并且将输入全部替换为矿物辞典，这是自动的，不需要进行额外配置
+Only One Item 会分析工作台中的重复配方，并在满足条件时重建合并后的配方。它不是对所有物品和流体配方无条件直接合并。
+
+如果检测到 UniDict 已加载，Only One Item 会跳过自身的工作台重复配方处理，避免重复处理。
 
 ## English
 
-Here's the English translation of the provided mod description and configuration details:
+### Project
 
-This mod was inspired by OneEnoughItem.
+Only One Item is an independent Minecraft 1.12.2 mod for unifying equivalent items and fluids in modpacks. It redirects created, copied, or modified stacks to configured targets and requires MixinBooter `>= 8.0` at runtime.
 
-It is not a fork and does not use any code from that project.
+The project was inspired by [OneEnoughItem](https://github.com/Tower-of-Sighs/OneEnoughItem), but is neither a fork nor a code derivative. It is an independent alternative to [UniDict].
 
-Its core purpose is to serve as an alternative to UniDict for resolving excessive item duplication in modpacks. (My own pack has 6 different copper ores! It’s insane!)
+### Configuration
 
-These items are functionally identical but use different registries, causing recipes and storage systems to treat them as distinct items (e.g., incompatible crafting, separate storage).
+The three files are `config/ooi/ooi_item.json`, `config/ooi/ooi_fluid.json`, and `config/ooi/ooi_item_black_list.json`. The item file accepts item ID/meta and ore-dictionary match sources, the fluid file maps fluid names, and the blacklist accepts `Item`, `ModID`, and `OreDict` entries. See the [JSON examples](#配置文件).
 
-This mod replaces items during creation, redirecting duplicates to reference a single unified item.
+The final effective JSON and CRT configuration is written back to all three files. Comments and original formatting are not preserved, so back up the files before editing. Invalid targets are ignored and logged.
 
-Configurations can be managed via JSON files in /config/ooi/or through CraftTweaker scripts (the latter is recommended for flexibility).
+CraftTweaker is mainly used to generate or complete these three JSON files, and valid registered entries are written to JSON. On the first launch after adding or changing a CRT script, replacement results may be incomplete or inaccurate. Check the generated JSON after startup and restart the game or server. Once the JSON is confirmed, later launches can use JSON directly; the CRT script does not have to be kept.
 
-JSON Configuration Examples
-Item Replacement (ooi_item.json)
+### CraftTweaker
 
-Redirects specified items/oredict entries to a target item:
-```
-[
-  {
-    "matchItems": [
-      {
-        "meta": 0,
-        "id": "minecraft:gold_ingot"
-      },
-      {
-        "oreName": "ingotGold"
-      }
-    ],
-    "targetID": "minecraft:gold_ingot",
-    "targetMeta": 0
-  }
-]
-```
+The current API consists of `mods.ooi.ConversionItem` (`create(IItemStack)`, the `addMatchItem(...)` overloads, and `register()`), `mods.ooi.ConversionFluid` (`create(ILiquidStack)`, the `addMatchFluid(...)` overloads, and `register()`), and `mods.ooi.BlackList` (the `addMatchItem(...)` overloads for items, ore dictionary entries, mod IDs, and varargs). See the [shared ZenScript example](#crafttweaker-api). Add match sources before calling `register()`; blacklist entries can be added directly. CRT is mainly a way to generate or complete the JSON configuration, and valid registrations are persisted there.
 
-(This example does nothing functionally, as both entries point to the same item. It demonstrates syntax.)
+### Recipes
 
-Blacklist (ooi_item_black_list.json)
+Ore dictionary entries can be used as item match sources. Only One Item analyzes duplicate workstation recipes and merges them when they meet its merge rules; it does not unconditionally merge every item or fluid recipe. If UniDict is loaded, Only One Item skips its own workstation recipe cleanup.
 
-Prevents listed items, mods, or oredict entries from being replaced:
-```
-[
-  {
-    "type": "Item",
-    "name": "minecraft:gold_ingot",
-    "meta": 0
-  },
-  {
-    "type": "ModID",
-    "name": "minecraft"
-  },
-  {
-    "type": "OreDict",
-    "name": "ingotGlod"
-  }
-]
-```
-
-Fluid Replacement (ooi_fluid.json)
-
-Unifies fluids (e.g., oil variants from different mods):
-
-```
-[
-  {
-    "matchFluids": [
-      "water"
-    ],
-    "targetID": "water"
-  }
-]
-```
-
-CraftTweaker Script Example
-More powerful dynamic configuration:
-
-```
-import mods.ooi.ConversionItem;
-import mods.ooi.ConversionFluid;
-import mods.ooi.BlackList;
-
-BlackList.addMatchItem("chisel");
-
-static modid as string[] = [
-    "minecraft",
-    "thermalfoundation",
-    "enderio",
-    "tconstruct",
-    "ic2",
-    "mets",
-    "taiga"
-];
-function getODItem(od as IOreDictEntry) as IItemStack{
-    if (isNull(od.firstItem))return <minecraft:stone>;
-    var clq as IItemStack = null;
-    for i in 0 to modid.length{
-        for item in od.items{
-            if (item.definition.owner == modid[i]){
-                clq = item;
-                break;
-            }
-        }
-        if (!isNull(clq))break;
-    }
-
-    return isNull(clq) ? od.firstItem : clq;
-};
-
-if (!(<ore:itemSilicon>.empty)){
-    ConversionItem.create(getODItem(<ore:itemSilicon>))
-            .addMatchItem(<ore:itemSilicon>)
-            .register();
-}
-
-for od in oreDict.entries {
-    var odName = od.name;
-    if (odName.startsWith("ore") 
-        || odName.startsWith("dust")
-        || odName.startsWith("ingot")
-        || odName.startsWith("gem")
-        || odName.startsWith("nugget")
-        || odName.startsWith("plate")
-        || odName.startsWith("gear")
-        || odName.startsWith("stick")
-    ){
-        ConversionItem.create(getODItem(od))
-            .addMatchItem(od)
-            .register();
-        if (odName.startsWith("gem")){
-            val od0 = oreDict.get("block" + odName.substring("gem".length));
-            if (!od0.empty){
-                ConversionItem.create(getODItem(od0))
-                    .addMatchItem(od0)
-                    .register();
-            }
-        } else if (odName.startsWith("ingot")){
-            val od0 = oreDict.get("block" + odName.substring("ingot".length));
-            if (!od0.empty){
-                ConversionItem.create(getODItem(od0))
-                    .addMatchItem(od0)
-                    .register();
-            }
-        }
-    }
-}
-```
-
-keynotes
-
-Recipe Merging: After unification, all recipesusing replaced items/fluids will use the unified target.
-
-Automatic Duplicate Handling: Duplicate workstation recipes (e.g., copper ingots -> copper blocks from different mods) are automatically detected and merged with OreDict inputs. No extra config needed!
-
-Caution: Replacing items from certain mods may cause errors. Test replacements thoroughly within your modpack.
-
-Preference: CraftTweaker scripts (*.zs) are recommended over static JSON for complex/mass replacements.
-
-This mod simplifies modpack item management by merging duplicates and fixing recipe fragmentation—let your pack breathe!
+[UniDict]: https://github.com/WanionCane/UniDict

@@ -1,27 +1,24 @@
 package com.circulation.only_one_item.crt;
 
 import com.circulation.only_one_item.conversion.ItemConversionTarget;
+import com.circulation.only_one_item.handler.MatchItemHandler;
 import com.circulation.only_one_item.util.MatchItem;
 import com.circulation.only_one_item.util.SimpleItem;
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.item.IItemStack;
 import crafttweaker.api.minecraft.CraftTweakerMC;
 import crafttweaker.api.oredict.IOreDictEntry;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.item.ItemStack;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
 
-import java.util.List;
 import java.util.Set;
 
 @ZenRegister
 @ZenClass("mods.ooi.ConversionItem")
 @SuppressWarnings("UnusedReturnValue")
 public class CrtConversionItemTarget {
-
-    public static final List<ItemConversionTarget> list = new ObjectArrayList<>();
 
     private final Set<MatchItem> matchItems = new ObjectOpenHashSet<>();
 
@@ -68,6 +65,8 @@ public class CrtConversionItemTarget {
 
     @ZenMethod
     public void register() {
-        list.add(new ItemConversionTarget(targetID, targetMeta).setMatchItem(matchItems));
+        ItemConversionTarget target = new ItemConversionTarget(targetID, targetMeta)
+            .setMatchItem(new ObjectOpenHashSet<>(matchItems));
+        MatchItemHandler.registerTarget(target);
     }
 }

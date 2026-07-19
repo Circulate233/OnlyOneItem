@@ -43,7 +43,7 @@ version = propertyString('mod_version')
 group = propertyString('root_package')
 
 base {
-    archivesName.set(propertyString('mod_id'))
+    archivesName.set('+' + propertyString('mod_id'))
 }
 
 tasks.decompressDecompiledSources.enabled !propertyBool('change_minecraft_sources')
@@ -212,6 +212,7 @@ if (propertyBool('use_access_transformer')) {
         if (fileLocation.exists()) {
             tasks.deobfuscateMergedJarToSrg.accessTransformerFiles.from(fileLocation)
             tasks.srgifyBinpatchedJar.accessTransformerFiles.from(fileLocation)
+            tasks.applyJST.accessTransformerFiles.from(fileLocation)
         } else {
             throw new GradleException("Access Transformer file [$fileLocation] does not exist!")
         }

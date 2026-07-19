@@ -90,13 +90,15 @@ public class OOIConfig {
             if (targets == null) {
                 throw new IllegalArgumentException("item mappings must be a JSON array");
             }
-            for (ItemConversionTarget target : targets) {
+            for (int index = 0, size = targets.size(); index < size; index++) {
+                ItemConversionTarget target = targets.get(index);
                 validateItemTarget(target);
                 items.add(new ItemConversionTarget(target.getTargetID(), target.getTargetMeta())
                     .setMatchItem(new LinkedHashSet<>(target.getMatchItems())));
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_item.json file is incorrect", e);
+            throw new IllegalStateException("[OOI] The config/ooi/ooi_item.json file is incorrect", e);
         }
     }
 
@@ -113,13 +115,15 @@ public class OOIConfig {
             if (targets == null) {
                 throw new IllegalArgumentException("fluid mappings must be a JSON array");
             }
-            for (FluidConversionTarget target : targets) {
+            for (int index = 0, size = targets.size(); index < size; index++) {
+                FluidConversionTarget target = targets.get(index);
                 validateFluidTarget(target);
                 fluids.add(new FluidConversionTarget(target.getTargetID())
                     .setMatchFluids(new LinkedHashSet<>(target.getMatchFluids())));
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_fluid.json file is incorrect", e);
+            throw new IllegalStateException("[OOI] The config/ooi/ooi_fluid.json file is incorrect", e);
         }
     }
 
@@ -138,12 +142,14 @@ public class OOIConfig {
             if (targets == null) {
                 throw new IllegalArgumentException("item blacklist must be a JSON array");
             }
-            for (BlackMatchItem target : targets) {
+            for (int index = 0, size = targets.size(); index < size; index++) {
+                BlackMatchItem target = targets.get(index);
                 validateBlackListTarget(target);
                 blackList.add(target);
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_item_black_list.json file is incorrect", e);
+            throw new IllegalStateException("[OOI] The config/ooi/ooi_item_black_list.json file is incorrect", e);
         }
     }
 

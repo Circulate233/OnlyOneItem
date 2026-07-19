@@ -22,7 +22,6 @@ import net.minecraftforge.registries.ForgeRegistry;
 import net.minecraftforge.registries.GameData;
 import net.minecraftforge.registries.RegistryManager;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -79,7 +78,8 @@ public class RecipeSignature {
         List<Ingredient> ingredients = recipe.getIngredients();
         List<Object> signatures = new ObjectArrayList<>();
 
-        for (Ingredient ingredient : ingredients) {
+        for (int index = 0, size = ingredients.size(); index < size; index++) {
+            Ingredient ingredient = ingredients.get(index);
             ItemStack[] matching = ingredient.getMatchingStacks();
             Int2IntMap map = new Int2IntOpenHashMap(matching.length);
             if (isOD(map, signatures, matching)) {
@@ -171,7 +171,8 @@ public class RecipeSignature {
         var NAME = getRecipeName(out);
         NonNullList<Ingredient> inputs = NonNullList.create();
         if (shaped) {
-            for (Object input : inputSignatures) {
+            for (int index = 0, size = inputSignatures.size(); index < size; index++) {
+                Object input = inputSignatures.get(index);
                 if (input instanceof String od) {
                     inputs.add(od.isEmpty() ?
                         Ingredient.EMPTY
@@ -226,10 +227,10 @@ public class RecipeSignature {
         }
     }
 
-    private boolean isEmpty(Collection<Ingredient> inputs) {
+    private boolean isEmpty(List<Ingredient> inputs) {
         if (inputs.isEmpty()) return true;
-        for (Ingredient input : inputs) {
-            if (input != Ingredient.EMPTY) {
+        for (int index = 0, size = inputs.size(); index < size; index++) {
+            if (inputs.get(index) != Ingredient.EMPTY) {
                 return false;
             }
         }

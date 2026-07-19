@@ -1,22 +1,19 @@
 package com.circulation.only_one_item.crt;
 
 import com.circulation.only_one_item.conversion.FluidConversionTarget;
+import com.circulation.only_one_item.handler.MatchFluidHandler;
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.liquid.ILiquidStack;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
 
-import java.util.List;
 import java.util.Set;
 
 @ZenRegister
 @ZenClass("mods.ooi.ConversionFluid")
 @SuppressWarnings("UnusedReturnValue")
 public class CrtConversionFluidTarget {
-
-    public static final List<FluidConversionTarget> list = new ObjectArrayList<>();
 
     private final Set<String> matchFluids = new ObjectOpenHashSet<>();
     private final String targetID;
@@ -56,6 +53,8 @@ public class CrtConversionFluidTarget {
 
     @ZenMethod
     public void register() {
-        list.add(new FluidConversionTarget(targetID).setMatchFluids(matchFluids));
+        FluidConversionTarget target = new FluidConversionTarget(targetID)
+            .setMatchFluids(new ObjectOpenHashSet<>(matchFluids));
+        MatchFluidHandler.registerTarget(target);
     }
 }

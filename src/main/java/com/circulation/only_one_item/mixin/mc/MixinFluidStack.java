@@ -1,5 +1,6 @@
 package com.circulation.only_one_item.mixin.mc;
 
+import com.circulation.only_one_item.conversion.FluidConversionTarget;
 import com.circulation.only_one_item.handler.MatchFluidHandler;
 import com.circulation.only_one_item.util.OOIFluidStack;
 import net.minecraftforge.fluids.Fluid;
@@ -19,8 +20,6 @@ import java.lang.invoke.MethodHandles;
 @Mixin(FluidStack.class)
 public abstract class MixinFluidStack implements OOIFluidStack {
 
-    @Unique
-    private static boolean ooi$init = false;
     @Unique
     private static MethodHandle ooi$delegates;
     @Shadow(remap = false)
@@ -48,32 +47,29 @@ public abstract class MixinFluidStack implements OOIFluidStack {
 
     @Inject(method = "<init>(Lnet/minecraftforge/fluids/Fluid;I)V", at = @At("TAIL"), remap = false)
     private void onInit(Fluid fluid, int amount, CallbackInfo ci) {
-        if (ooi$init) {
-            ooi$ooiInit(fluid);
-        } else {
-            MatchFluidHandler.addPreFluidStack(this);
-        }
-    }
-
-    @Override
-    public void ooi$init() {
-        ooi$init = true;
+        ooi$ooiInit(fluid);
     }
 
     @Override
     public void ooi$ooiInit(Fluid fluid) {
-        Fluid target = MatchFluidHandler.match(fluid);
-
-        if (target != null) {
-            var d = ooi$makeDelegate(target);
-            if (d != null) {
-                fluidDelegate = d;
-            }
+        FluidConversionTarget conversionTarget = MatchFluidHandler.match(fluid);
+        if (conversionTarget == null) {
+            return;
         }
+
+        Fluid target = conversionTarget.getTarget();
+        if (target == null) {
+            MatchFluidHandler.addPreFluidStack(conversionTarget, this);
+            return;
+        }
+        ooi$replace(target);
     }
 
     @Override
-    public IRegistryDelegate<Fluid> ooi$getFluidDelegate() {
-        return this.fluidDelegate;
+    public void ooi$replace(Fluid target) {
+        var delegate = ooi$makeDelegate(target);
+        if (delegate != null) {
+            fluidDelegate = delegate;
+        }
     }
 }

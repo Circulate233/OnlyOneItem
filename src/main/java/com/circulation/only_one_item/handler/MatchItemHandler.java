@@ -3,27 +3,28 @@ package com.circulation.only_one_item.handler;
 import com.circulation.only_one_item.OOIConfig;
 import com.circulation.only_one_item.OnlyOneItem;
 import com.circulation.only_one_item.conversion.ItemConversionTarget;
-import com.circulation.only_one_item.crt.CrtBlackList;
-import com.circulation.only_one_item.crt.CrtConversionItemTarget;
-import com.circulation.only_one_item.mixin.mc.AccessorFurnaceRecipes;
 import com.circulation.only_one_item.util.BlackMatchItem;
 import com.circulation.only_one_item.util.MatchItem;
 import com.circulation.only_one_item.util.OOIItemStack;
 import com.circulation.only_one_item.util.RecipeSignature;
 import com.circulation.only_one_item.util.SimpleItem;
 import com.google.common.collect.Multiset;
+import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.Object2FloatOpenCustomHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
-import lombok.Synchronized;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.FurnaceRecipes;
@@ -33,11 +34,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.GameData;
 import net.minecraftforge.registries.RegistryManager;
-import net.minecraftforge.fml.common.Optional;
 
 import java.util.List;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,14 +47,31 @@ public class MatchItemHandler {
     private static final Set<String> finalMODIDBlackSet = new ObjectOpenHashSet<>();
     private static final Set<SimpleItem> allTarget = new ObjectOpenHashSet<>();
     private static final Int2ObjectMap<ItemConversionTarget> defaultMap = Int2ObjectMaps.emptyMap();
-    private static List<OOIItemStack> list = new ObjectArrayList<>();
+    private static Reference2ObjectMap<ItemConversionTarget, ObjectArrayList<OOIItemStack>> map =
+        new Reference2ObjectOpenHashMap<>();
+
+    private static final Hash.Strategy<ItemStack> hashItemStack = new Hash.Strategy<>() {
+        @Override
+        public int hashCode(final ItemStack stack) {
+            return (stack.getItem().hashCode() + 31) * stack.getCount();
+        }
+
+        @Override
+        public boolean equals(final ItemStack stack1, final ItemStack stack2) {
+            if (stack1 == null || stack2 == null) {
+                return false;
+            }
+            return stack2.getItem() == stack1.getItem() && (stack2.getMetadata() == 32767 || stack2.getMetadata() == stack1.getMetadata());
+        }
+    };
 
     public static void preItemStackInit() {
         odToTargetMap.forEach((od, i) -> {
             var ods = OreDictionary.getOres(od);
             var listC = new ObjectArrayList<>(ods);
             ods.clear();
-            for (ItemStack stack : listC) {
+            for (int index = 0, size = listC.size(); index < size; index++) {
+                ItemStack stack = listC.get(index);
                 Item item = stack.getItem();
                 ResourceLocation rl = item.getRegistryName();
                 int meta = stack.getMetadata();
@@ -70,39 +85,60 @@ public class MatchItemHandler {
             ods.add(i.getItemStack());
         });
 
-        if (list == null)
-            throw new RuntimeException("[OOI] Initialization should not be performed multiple times");
-        ((OOIItemStack) (Object) ItemStack.EMPTY).ooi$init();
+        processPendingStacks();
+        if (map == null) {
+            throw new IllegalStateException("[OOI] Item pending targets were already finalized");
+        }
+        for (Reference2ObjectMap.Entry<ItemConversionTarget, ObjectArrayList<OOIItemStack>> entry
+            : map.reference2ObjectEntrySet()) {
+            ItemConversionTarget target = entry.getKey();
+            OnlyOneItem.LOGGER.error(
+                "[OOI] Dropping pending item stacks because target item is not registered: targetID={}, targetMeta={}, stacks={}",
+                target.getTargetID(), target.getTargetMeta(), entry.getValue().size());
+        }
+        map.clear();
+        map = null;
 
-        new ReferenceOpenHashSet<>(list)
-            .parallelStream()
-            .forEach(OOIItemStack::ooi$ooiInit);
-        list.clear();
-        list = null;
+        var f = FurnaceRecipes.instance();
+        f.smeltingList = new Object2ObjectOpenCustomHashMap<>(f.smeltingList, hashItemStack);
+        f.experienceList = new Object2FloatOpenCustomHashMap<>(f.experienceList, hashItemStack);
+    }
 
-        var sl = FurnaceRecipes.instance().getSmeltingList();
-        var slc = new Reference2ObjectOpenHashMap<>(sl);
-
-        var el = ((AccessorFurnaceRecipes) FurnaceRecipes.instance()).ooi$getExperienceList();
-        var elc = new Reference2ObjectOpenHashMap<>(el);
-
-        sl.clear();
-        el.clear();
-
-        Map<SimpleItem, ItemStack> uniqueKeys = new Object2ObjectOpenHashMap<>(sl.size());
-
-        for (Map.Entry<ItemStack, ItemStack> stack : slc.entrySet()) {
-            ItemStack key = stack.getKey();
-            var s = SimpleItem.getInstance(key);
-
-            ItemStack canonicalKey = uniqueKeys.computeIfAbsent(s, k -> key);
-
-            if (canonicalKey == key) {
-                sl.put(key, stack.getValue());
-            }
+    public static void processPendingStacks() {
+        if (map == null || map.isEmpty()) {
+            return;
         }
 
-        el.putAll(elc);
+        ObjectArrayList<ItemConversionTarget> initializedTargets = new ObjectArrayList<>();
+        for (Reference2ObjectMap.Entry<ItemConversionTarget, ObjectArrayList<OOIItemStack>> entry
+            : map.reference2ObjectEntrySet()) {
+            Item targetItem = entry.getKey().getTarget();
+            if (targetItem == null) {
+                continue;
+            }
+            ObjectArrayList<OOIItemStack> stacks = entry.getValue();
+            for (int index = 0, size = stacks.size(); index < size; index++) {
+                stacks.get(index).ooi$replace(entry.getKey(), targetItem);
+            }
+            initializedTargets.add(entry.getKey());
+        }
+        for (int index = 0, size = initializedTargets.size(); index < size; index++) {
+            map.remove(initializedTargets.get(index));
+        }
+    }
+
+    public static void addPreItemStack(ItemConversionTarget target, OOIItemStack stack) {
+        if (map == null) {
+            return;
+        }
+        for (ObjectArrayList<OOIItemStack> stacks : map.values()) {
+            for (int index = 0, size = stacks.size(); index < size; index++) {
+                if (stacks.get(index) == stack) {
+                    return;
+                }
+            }
+        }
+        map.computeIfAbsent(target, key -> new ObjectArrayList<>()).add(stack);
     }
 
     public static boolean isModify(String odName) {
@@ -147,7 +183,8 @@ public class MatchItemHandler {
 
         recipes.forEach((r, recipe) -> {
             if (recipe.size() > 1) {
-                for (IRecipe iRecipe : recipe) {
+                for (int index = 0, size = recipe.size(); index < size; index++) {
+                    IRecipe iRecipe = recipe.get(index);
                     if (iRecipe != null) {
                         a.remove(iRecipe.getRegistryName());
                     }
@@ -174,47 +211,63 @@ public class MatchItemHandler {
 
     public static synchronized void InitTarget() {
         Clear();
-        Map<String, ItemConversionTarget> targetsByMatch = new LinkedHashMap<>();
-        Map<String, MatchItem> matchesByKey = new LinkedHashMap<>();
-        Map<String, String> sourcesByMatch = new LinkedHashMap<>();
+        BlackInit();
+        Init();
+        var f = FurnaceRecipes.instance();
+        f.smeltingList = new Object2ObjectOpenCustomHashMap<>(f.smeltingList, hashItemStack);
+        f.experienceList = new Object2FloatOpenCustomHashMap<>(f.experienceList, hashItemStack);
+    }
 
-        for (int index = 0; index < 2; index++) {
-            List<ItemConversionTarget> targets = index == 0 ? OOIConfig.items : CrtConversionItemTarget.list;
-            String source = index == 0 ? "JSON" : "CRT";
-            for (ItemConversionTarget target : targets) {
-                if (target == null || target.getMatchItems() == null || target.getMatchItems().isEmpty()) {
-                    OnlyOneItem.LOGGER.error("[OOI] Invalid {} item mapping", source);
-                    throw new IllegalStateException("[OOI] Invalid " + source + " item mapping");
+    public static synchronized void registerTarget(ItemConversionTarget target) {
+        validateTarget(target);
+        OOIConfig.items.add(target);
+        Init(target);
+    }
+
+    public static synchronized void registerBlackList(BlackMatchItem target) {
+        if (target == null) {
+            OnlyOneItem.LOGGER.error("[OOI] Invalid item blacklist entry");
+            throw new IllegalArgumentException("[OOI] Invalid item blacklist entry");
+        }
+        if (OOIConfig.blackList.add(target)) {
+            BlackInit(target);
+        }
+    }
+
+    public static synchronized void finalizeTargets() {
+        Map<String, ItemConversionTarget> targetsByMatch = new Object2ObjectLinkedOpenHashMap<>();
+        Map<String, MatchItem> matchesByKey = new Object2ObjectLinkedOpenHashMap<>();
+
+        for (int index = 0, size = OOIConfig.items.size(); index < size; index++) {
+            ItemConversionTarget target = OOIConfig.items.get(index);
+            validateTarget(target);
+            for (MatchItem matchItem : target.getMatchItems()) {
+                if (matchItem == null) {
+                    OnlyOneItem.LOGGER.error("[OOI] Null match item in mapping {}", target.getTargetID());
+                    throw new IllegalStateException("[OOI] Null match item in mapping " + target.getTargetID());
                 }
-                for (MatchItem matchItem : target.getMatchItems()) {
-                    if (matchItem == null) {
-                        OnlyOneItem.LOGGER.error("[OOI] Null match item in {} mapping {}", source, target.getTargetID());
-                        throw new IllegalStateException("[OOI] Null match item in " + source + " mapping");
-                    }
-                    String key = matchItem.oreName() != null
-                        ? "ore:" + matchItem.oreName()
-                        : "item:" + matchItem.id() + ':' + matchItem.meta();
-                    targetsByMatch.put(key, target);
-                    matchesByKey.put(key, matchItem);
-                    sourcesByMatch.put(key, source);
-                }
+                String key = matchItem.oreName() != null
+                    ? "ore:" + matchItem.oreName()
+                    : "item:" + matchItem.id() + ':' + matchItem.meta();
+                targetsByMatch.put(key, target);
+                matchesByKey.put(key, matchItem);
             }
         }
 
-        Map<String, ItemConversionTarget> finalTargets = new LinkedHashMap<>();
+        Map<String, ItemConversionTarget> finalTargets = new Object2ObjectLinkedOpenHashMap<>();
         for (Map.Entry<String, ItemConversionTarget> entry : targetsByMatch.entrySet()) {
             ItemConversionTarget target = entry.getValue();
             if (target.getTarget() == null) {
                 OnlyOneItem.LOGGER.error(
-                    "[OOI] Dropping {} item mapping because target item is not registered: targetID={}, targetMeta={}, match={}",
-                    sourcesByMatch.get(entry.getKey()), target.getTargetID(), target.getTargetMeta(), entry.getKey());
+                    "[OOI] Dropping item mapping because target item is not registered: targetID={}, targetMeta={}, match={}",
+                    target.getTargetID(), target.getTargetMeta(), entry.getKey());
                 continue;
             }
             String key = target.getTargetID() + '#' + target.getTargetMeta();
             ItemConversionTarget finalTarget = finalTargets.get(key);
             if (finalTarget == null) {
                 finalTarget = new ItemConversionTarget(target.getTargetID(), target.getTargetMeta())
-                    .setMatchItem(new LinkedHashSet<>());
+                    .setMatchItem(new ObjectLinkedOpenHashSet<>());
                 finalTargets.put(key, finalTarget);
             }
             finalTarget.getMatchItems().add(matchesByKey.get(entry.getKey()));
@@ -222,16 +275,9 @@ public class MatchItemHandler {
 
         OOIConfig.items.clear();
         OOIConfig.items.addAll(finalTargets.values());
-        OOIConfig.blackList.addAll(CrtBlackList.list);
-        BlackInit(OOIConfig.blackList);
-        Init(OOIConfig.items);
-    }
-
-    @Synchronized("list")
-    public static void addPreItemStack(OOIItemStack i) {
-        if (list == null)
-            throw new RuntimeException("[OOI] It should not be added again after initialization");
-        list.add(i);
+        Clear();
+        BlackInit();
+        Init();
     }
 
     public static void addTargetItem(ResourceLocation rl, int meta, ItemConversionTarget t) {
@@ -264,7 +310,6 @@ public class MatchItemHandler {
         }
         if (odToTargetMap.containsKey(od)) {
             addTargetItem(rl, ore.getMetadata(), odToTargetMap.get(od));
-            ((OOIItemStack) (Object) ore).ooi$ooiInit();
         }
     }
 
@@ -273,7 +318,8 @@ public class MatchItemHandler {
             var od = entry.getKey();
             var list = OreDictionary.getOres(od);
             var blackList = new ReferenceArrayList<ItemStack>();
-            for (ItemStack ore : list) {
+            for (int index = 0, size = list.size(); index < size; index++) {
+                ItemStack ore = list.get(index);
                 if (finalODBlackSet.contains(od)) {
                     finalItemBlackMap
                         .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
@@ -293,7 +339,6 @@ public class MatchItemHandler {
                 }
                 if (odToTargetMap.containsKey(od)) {
                     addTargetItem(rl, ore.getMetadata(), odToTargetMap.get(od));
-                    ((OOIItemStack) (Object) ore).ooi$ooiInit();
                 }
             }
             list.clear();
@@ -317,31 +362,10 @@ public class MatchItemHandler {
             .get(meta);
     }
 
-    public static Item resolveTargetItem(ItemConversionTarget target, ItemStack source) {
-        if (target == null) {
-            return null;
-        }
-
-        Item targetItem = target.getTarget();
-        if (targetItem != null) {
-            return targetItem;
-        }
-
-        ResourceLocation sourceId = source == null
-            ? null
-            : source.getItem().getRegistryName();
-        int sourceMeta = source == null ? 0 : source.getMetadata();
-        OnlyOneItem.LOGGER.error(
-            "[OOI] Item replacement target is unavailable: sourceID={}, sourceMeta={}, targetID={}, targetMeta={}",
-            sourceId,
-            sourceMeta,
-            target.getTargetID(),
-            target.getTargetMeta());
-        return null;
-    }
-
     private static boolean isPotentiallyModifiedRecipe(IRecipe recipe) {
-        for (Ingredient ingredient : recipe.getIngredients()) {
+        List<Ingredient> ingredients = recipe.getIngredients();
+        for (int index = 0, size = ingredients.size(); index < size; index++) {
+            Ingredient ingredient = ingredients.get(index);
             for (ItemStack stack : ingredient.getMatchingStacks()) {
                 if (isPotentiallyModifiedStack(stack)) {
                     return true;
@@ -357,62 +381,74 @@ public class MatchItemHandler {
         return allTarget.contains(SimpleItem.getNoNBTInstance(stack));
     }
 
-    private static void Init(List<ItemConversionTarget> items) {
-        for (ItemConversionTarget t : items) {
-            for (MatchItem matchItem : t.getMatchItems()) {
-                if (matchItem.oreName() != null) {
-                    var list = OreDictionary.getOres(matchItem.oreName(), false);
-                    for (ItemStack stack : list) {
-                        Item item = stack.getItem();
-                        ResourceLocation rl = item.getRegistryName();
-                        int meta = stack.getMetadata();
-                        if (rl == null) continue;
-                        if (allTarget.contains(SimpleItem.getNoNBTInstance(stack))
-                            || (finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
-                            || finalMODIDBlackSet.contains(rl.getNamespace())) {
-                            continue;
-                        }
-                        addTargetItem(rl, meta, t);
+    private static void Init() {
+        for (int index = 0, size = OOIConfig.items.size(); index < size; index++) {
+            Init(OOIConfig.items.get(index));
+        }
+    }
+
+    private static void Init(ItemConversionTarget target) {
+        validateTarget(target);
+        for (MatchItem matchItem : target.getMatchItems()) {
+            if (matchItem.oreName() != null) {
+                var list = OreDictionary.getOres(matchItem.oreName(), false);
+                for (int index = 0, size = list.size(); index < size; index++) {
+                    ItemStack stack = list.get(index);
+                    Item item = stack.getItem();
+                    ResourceLocation rl = item.getRegistryName();
+                    int meta = stack.getMetadata();
+                    if (rl == null) continue;
+                    if (allTarget.contains(SimpleItem.getNoNBTInstance(stack))
+                        || (finalItemBlackMap.containsKey(rl) && finalItemBlackMap.get(rl).contains(meta))
+                        || finalMODIDBlackSet.contains(rl.getNamespace())) {
+                        continue;
                     }
-                    odToTargetMap.put(matchItem.oreName(), t);
-                } else if (matchItem.id() != null) {
-                    if (!allTarget.contains(SimpleItem.getInstance(matchItem.id(), matchItem.meta()))) {
-                        addTargetItem(new ResourceLocation(matchItem.id()), matchItem.meta(), t);
-                    }
+                    addTargetItem(rl, meta, target);
+                }
+                odToTargetMap.put(matchItem.oreName(), target);
+            } else if (matchItem.id() != null) {
+                if (!allTarget.contains(SimpleItem.getInstance(matchItem.id(), matchItem.meta()))) {
+                    addTargetItem(new ResourceLocation(matchItem.id()), matchItem.meta(), target);
                 }
             }
         }
     }
 
-    private static void BlackInit(Set<BlackMatchItem> blackSet) {
-        for (BlackMatchItem matchItem : blackSet) {
-            switch (matchItem.type()) {
-                case Item -> finalItemBlackMap
-                    .computeIfAbsent(new ResourceLocation(matchItem.name()), k -> new IntOpenHashSet())
-                    .add(matchItem.meta());
-                case ModID -> finalMODIDBlackSet.add(matchItem.name());
-                case OreDict -> {
-                    String od = matchItem.name();
-                    for (ItemStack stack : OreDictionary.getOres(od)) {
-                        Item item = stack.getItem();
-                        ResourceLocation rl = item.getRegistryName();
-                        int meta = stack.getMetadata();
-                        if (rl != null) {
-                            finalItemBlackMap
-                                .computeIfAbsent(rl, k -> new IntOpenHashSet())
-                                .add(meta);
-                        }
+    private static void BlackInit() {
+        for (BlackMatchItem matchItem : OOIConfig.blackList) {
+            BlackInit(matchItem);
+        }
+    }
+
+    private static void BlackInit(BlackMatchItem matchItem) {
+        switch (matchItem.type()) {
+            case Item -> finalItemBlackMap
+                .computeIfAbsent(new ResourceLocation(matchItem.name()), k -> new IntOpenHashSet())
+                .add(matchItem.meta());
+            case ModID -> finalMODIDBlackSet.add(matchItem.name());
+            case OreDict -> {
+                String od = matchItem.name();
+                List<ItemStack> stacks = OreDictionary.getOres(od);
+                for (int index = 0, size = stacks.size(); index < size; index++) {
+                    ItemStack stack = stacks.get(index);
+                    Item item = stack.getItem();
+                    ResourceLocation rl = item.getRegistryName();
+                    int meta = stack.getMetadata();
+                    if (rl != null) {
+                        finalItemBlackMap
+                            .computeIfAbsent(rl, k -> new IntOpenHashSet())
+                            .add(meta);
                     }
-                    finalODBlackSet.add(od);
                 }
+                finalODBlackSet.add(od);
             }
         }
     }
 
-    @Optional.Method(modid = "crafttweaker")
-    public static void CrtInit() {
-        OnlyOneItem.LOGGER.debug(
-            "[OOI] CRT item mappings staged: {}, item blacklist entries staged: {}",
-            CrtConversionItemTarget.list.size(), CrtBlackList.list.size());
+    private static void validateTarget(ItemConversionTarget target) {
+        if (target == null || target.getMatchItems() == null || target.getMatchItems().isEmpty()) {
+            OnlyOneItem.LOGGER.error("[OOI] Invalid item mapping");
+            throw new IllegalStateException("[OOI] Invalid item mapping");
+        }
     }
 }

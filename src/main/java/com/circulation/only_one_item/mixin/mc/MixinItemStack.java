@@ -20,8 +20,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ItemStack.class)
 public abstract class MixinItemStack implements OOIItemStack {
 
-    @Unique
-    private static boolean ooi$init = false;
     @Shadow
     int itemDamage;
     @Mutable
@@ -56,11 +54,7 @@ public abstract class MixinItemStack implements OOIItemStack {
     @Inject(method = "copy", at = @At("TAIL"))
     private void copy(CallbackInfoReturnable<ItemStack> cir) {
         OOIItemStack itemStack = OOIItemStack.forItem(cir.getReturnValue());
-        if (!ooi$init) {
-            MatchItemHandler.addPreItemStack(itemStack);
-        } else {
-            itemStack.ooi$ooiInit();
-        }
+        itemStack.ooi$ooiInit();
     }
 
     @Inject(method = "setItemDamage", at = @At("TAIL"))
@@ -77,38 +71,37 @@ public abstract class MixinItemStack implements OOIItemStack {
     }
 
     @Intrinsic
-    public void ooi$init() {
-        ooi$init = true;
-    }
-
-    @Intrinsic
     public ItemStack ooi$getThis() {
         return (ItemStack) (Object) this;
     }
 
     @Intrinsic
     public void ooi$ooiInit() {
-        if (!ooi$init) {
-            MatchItemHandler.addPreItemStack(this);
-        } else {
-            ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
-
-            if (target != null) {
-                Item targetItem = MatchItemHandler.resolveTargetItem(target, (ItemStack) (Object) this);
-                if (targetItem != null) {
-                    ooi$originalItem = this.item;
-                    ooi$originalMeta = itemDamage;
-                    if (targetItem == Items.AIR) {
-                        this.setCount(0);
-                    } else {
-                        this.item = targetItem;
-                        delegate = targetItem.delegate;
-                        itemDamage = target.getTargetMeta();
-                    }
-                    ooi$isBeReplaced = true;
-                }
-            }
+        ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
+        if (target == null) {
+            return;
         }
+
+        Item targetItem = target.getTarget();
+        if (targetItem == null) {
+            MatchItemHandler.addPreItemStack(target, this);
+            return;
+        }
+        ooi$replace(target, targetItem);
+    }
+
+    @Intrinsic
+    public void ooi$replace(ItemConversionTarget target, Item targetItem) {
+        ooi$originalItem = this.item;
+        ooi$originalMeta = itemDamage;
+        if (targetItem == Items.AIR) {
+            this.setCount(0);
+        } else {
+            this.item = targetItem;
+            delegate = targetItem.delegate;
+            itemDamage = target.getTargetMeta();
+        }
+        ooi$isBeReplaced = true;
     }
 
     @Intrinsic

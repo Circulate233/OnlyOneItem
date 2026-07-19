@@ -1,57 +1,85 @@
 package com.circulation.only_one_item.handler;
 
-import com.circulation.only_one_item.conversion.FluidConversionTarget;
+import com.circulation.only_one_item.OOIConfig;
 import com.circulation.only_one_item.OnlyOneItem;
-import com.circulation.only_one_item.crt.CrtConversionFluidTarget;
+import com.circulation.only_one_item.conversion.FluidConversionTarget;
 import com.circulation.only_one_item.util.OOIFluidStack;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ReferenceMap;
 import it.unimi.dsi.fastutil.objects.Reference2ReferenceOpenHashMap;
-import lombok.Synchronized;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.registries.IRegistryDelegate;
-import net.minecraftforge.fml.common.Optional;
 
-import java.util.List;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class MatchFluidHandler {
 
-    private static final Map<String, Fluid> fluidNameToTargetMap = new Object2ReferenceOpenHashMap<>();
-    private static final Reference2ReferenceMap<Fluid, Fluid> fluidToTargetMap = new Reference2ReferenceOpenHashMap<>();
-    private static List<OOIFluidStack> list = new ObjectArrayList<>();
+    private static final Map<String, FluidConversionTarget> fluidNameToTargetMap = new Object2ObjectOpenHashMap<>();
+    private static final Reference2ReferenceMap<Fluid, FluidConversionTarget> fluidToTargetMap = new Reference2ReferenceOpenHashMap<>();
+    private static Reference2ObjectMap<FluidConversionTarget, ObjectArrayList<OOIFluidStack>> map =
+        new Reference2ObjectOpenHashMap<>();
 
     public static void preFluidStackInit() {
-        if (list == null)
-            throw new RuntimeException("[OOI] Initialization should not be performed multiple times");
-        ((OOIFluidStack) new FluidStack(FluidRegistry.WATER, 1)).ooi$init();
-        list.parallelStream()
-            .forEach(fluid -> {
-                if (fluid != null) {
-                    IRegistryDelegate<Fluid> stack;
-                    if ((stack = fluid.ooi$getFluidDelegate()) != null) {
-                        fluid.ooi$ooiInit(stack.get());
-                    }
+        processPendingStacks();
+        if (map == null) {
+            throw new IllegalStateException("[OOI] Fluid pending targets were already finalized");
+        }
+        for (Reference2ObjectMap.Entry<FluidConversionTarget, ObjectArrayList<OOIFluidStack>> entry
+            : map.reference2ObjectEntrySet()) {
+            OnlyOneItem.LOGGER.error(
+                "[OOI] Dropping pending fluid stacks because target fluid is not registered: targetID={}, stacks={}",
+                entry.getKey().getTargetID(), entry.getValue().size());
+        }
+        map.clear();
+        map = null;
+    }
+
+    public static void processPendingStacks() {
+        if (map == null || map.isEmpty()) {
+            return;
+        }
+
+        ObjectArrayList<FluidConversionTarget> initializedTargets = new ObjectArrayList<>();
+        for (Reference2ObjectMap.Entry<FluidConversionTarget, ObjectArrayList<OOIFluidStack>> entry
+            : map.reference2ObjectEntrySet()) {
+            Fluid target = entry.getKey().getTarget();
+            if (target == null) {
+                continue;
+            }
+            ObjectArrayList<OOIFluidStack> stacks = entry.getValue();
+            for (int index = 0, size = stacks.size(); index < size; index++) {
+                stacks.get(index).ooi$replace(target);
+            }
+            initializedTargets.add(entry.getKey());
+        }
+        for (int index = 0, size = initializedTargets.size(); index < size; index++) {
+            map.remove(initializedTargets.get(index));
+        }
+    }
+
+    public static void addPreFluidStack(FluidConversionTarget target, OOIFluidStack stack) {
+        if (map == null) {
+            return;
+        }
+        for (ObjectArrayList<OOIFluidStack> stacks : map.values()) {
+            for (int index = 0, size = stacks.size(); index < size; index++) {
+                if (stacks.get(index) == stack) {
+                    return;
                 }
-            });
-        list.clear();
-        list = null;
+            }
+        }
+        map.computeIfAbsent(target, key -> new ObjectArrayList<>()).add(stack);
     }
 
-    @Synchronized("list")
-    public static void addPreFluidStack(OOIFluidStack i) {
-        if (list == null)
-            throw new RuntimeException("[OOI] It should not be added again after initialization");
-        list.add(i);
-    }
-
-    public static Fluid match(Object obj) {
+    public static FluidConversionTarget match(Object obj) {
         if (!(obj instanceof Fluid fluid)) return null;
-        return fluidToTargetMap.get(fluid);
+        FluidConversionTarget target = fluidToTargetMap.get(fluid);
+        return target == null ? fluidNameToTargetMap.get(fluid.getName()) : target;
     }
 
     public static synchronized void Clear() {
@@ -59,68 +87,83 @@ public class MatchFluidHandler {
         fluidToTargetMap.clear();
     }
 
-    public static synchronized void Init(List<FluidConversionTarget> fluids) {
+    public static synchronized void Init() {
         Clear();
-        Map<String, FluidConversionTarget> targetsByMatch = new LinkedHashMap<>();
-        Map<String, String> sourcesByMatch = new LinkedHashMap<>();
-        for (int index = 0; index < 2; index++) {
-            List<FluidConversionTarget> targets = index == 0 ? fluids : CrtConversionFluidTarget.list;
-            String source = index == 0 ? "JSON" : "CRT";
-            for (FluidConversionTarget target : targets) {
-                if (target == null || target.getMatchFluids() == null || target.getMatchFluids().isEmpty()) {
-                    OnlyOneItem.LOGGER.error("[OOI] Invalid {} fluid mapping", source);
-                    throw new IllegalStateException("[OOI] Invalid " + source + " fluid mapping");
+        for (int index = 0, size = OOIConfig.fluids.size(); index < size; index++) {
+            addTarget(OOIConfig.fluids.get(index));
+        }
+    }
+
+    public static synchronized void registerTarget(FluidConversionTarget target) {
+        validateTarget(target);
+        OOIConfig.fluids.add(target);
+        addTarget(target);
+    }
+
+    public static synchronized void finalizeTargets() {
+        Map<String, FluidConversionTarget> targetsByMatch = new Object2ObjectLinkedOpenHashMap<>();
+        for (int index = 0, size = OOIConfig.fluids.size(); index < size; index++) {
+            FluidConversionTarget target = OOIConfig.fluids.get(index);
+            validateTarget(target);
+            for (String matchFluid : target.getMatchFluids()) {
+                if (matchFluid == null || matchFluid.trim().isEmpty()) {
+                    OnlyOneItem.LOGGER.error("[OOI] Blank match fluid in mapping {}", target.getTargetID());
+                    throw new IllegalStateException("[OOI] Blank match fluid in mapping " + target.getTargetID());
                 }
-                for (String matchFluid : target.getMatchFluids()) {
-                    if (matchFluid == null || matchFluid.trim().isEmpty()) {
-                        OnlyOneItem.LOGGER.error("[OOI] Blank match fluid in {} mapping {}", source, target.getTargetID());
-                        throw new IllegalStateException("[OOI] Blank match fluid in " + source + " mapping");
-                    }
-                    targetsByMatch.put(matchFluid, target);
-                    sourcesByMatch.put(matchFluid, source);
-                }
+                targetsByMatch.put(matchFluid, target);
             }
         }
 
-        Map<String, FluidConversionTarget> finalTargets = new LinkedHashMap<>();
+        Map<String, FluidConversionTarget> finalTargets = new Object2ObjectLinkedOpenHashMap<>();
         for (Map.Entry<String, FluidConversionTarget> entry : targetsByMatch.entrySet()) {
             FluidConversionTarget target = entry.getValue();
             Fluid targetFluid = target.getTarget();
             if (targetFluid == null) {
                 OnlyOneItem.LOGGER.error(
-                    "[OOI] Dropping {} fluid mapping because target fluid is not registered: targetID={}, match={}",
-                    sourcesByMatch.get(entry.getKey()), target.getTargetID(), entry.getKey());
+                    "[OOI] Dropping fluid mapping because target fluid is not registered: targetID={}, match={}",
+                    target.getTargetID(), entry.getKey());
                 continue;
             }
             FluidConversionTarget finalTarget = finalTargets.get(target.getTargetID());
             if (finalTarget == null) {
                 finalTarget = new FluidConversionTarget(target.getTargetID())
-                    .setMatchFluids(new java.util.LinkedHashSet<>());
+                    .setMatchFluids(new ObjectLinkedOpenHashSet<>());
                 finalTargets.put(target.getTargetID(), finalTarget);
             }
             finalTarget.getMatchFluids().add(entry.getKey());
         }
 
-        fluids.clear();
-        fluids.addAll(finalTargets.values());
-        for (FluidConversionTarget target : fluids) {
-            Fluid targetFluid = target.getTarget();
-            for (String matchFluid : target.getMatchFluids()) {
-                fluidNameToTargetMap.put(matchFluid, targetFluid);
-            }
+        OOIConfig.fluids.clear();
+        OOIConfig.fluids.addAll(finalTargets.values());
+        Clear();
+        for (int index = 0, size = OOIConfig.fluids.size(); index < size; index++) {
+            addTarget(OOIConfig.fluids.get(index));
         }
     }
 
-    @Optional.Method(modid = "crafttweaker")
-    public static void CrtInit() {
-        OnlyOneItem.LOGGER.debug("[OOI] CRT fluid mappings staged: {}", CrtConversionFluidTarget.list.size());
+    private static void addTarget(FluidConversionTarget target) {
+        validateTarget(target);
+        for (String matchFluid : target.getMatchFluids()) {
+            if (matchFluid == null || matchFluid.trim().isEmpty()) {
+                OnlyOneItem.LOGGER.error("[OOI] Blank match fluid in mapping {}", target.getTargetID());
+                throw new IllegalStateException("[OOI] Blank match fluid in mapping " + target.getTargetID());
+            }
+            fluidNameToTargetMap.put(matchFluid, target);
+        }
+    }
+
+    private static void validateTarget(FluidConversionTarget target) {
+        if (target == null || target.getMatchFluids() == null || target.getMatchFluids().isEmpty()) {
+            OnlyOneItem.LOGGER.error("[OOI] Invalid fluid mapping");
+            throw new IllegalStateException("[OOI] Invalid fluid mapping");
+        }
     }
 
     public static synchronized void lock() {
-        fluidNameToTargetMap.forEach((key, fluid) -> {
+        fluidNameToTargetMap.forEach((key, target) -> {
             var f = FluidRegistry.getFluid(key);
             if (f != null) {
-                fluidToTargetMap.put(f, fluid);
+                fluidToTargetMap.put(f, target);
             }
         });
         fluidNameToTargetMap.clear();
