@@ -44,6 +44,8 @@ public abstract class MixinItemStack implements OOIItemStack {
     @Shadow
     public abstract void setCount(int size);
 
+    @Shadow public abstract int getItemDamage();
+
     @Inject(method = "forgeInit", at = @At("TAIL"), remap = false)
     private void ooiInit(CallbackInfo ci) {
         if (!this.isEmpty()) {
@@ -53,12 +55,16 @@ public abstract class MixinItemStack implements OOIItemStack {
 
     @Inject(method = "copy", at = @At("TAIL"))
     private void copy(CallbackInfoReturnable<ItemStack> cir) {
-        OOIItemStack itemStack = OOIItemStack.forItem(cir.getReturnValue());
-        itemStack.ooi$ooiInit();
+        if (ooi$isBeReplaced) {
+            OOIItemStack.forItem(cir.getReturnValue()).ooi$inheritReplacementState(
+                ooi$originalItem, ooi$originalMeta, item, delegate, itemDamage);
+        }
     }
 
     @Inject(method = "setItemDamage", at = @At("TAIL"))
     private void setMateData(int meta, CallbackInfo ci) {
+        if (this.getItem().isDamageable()) return;
+        ooi$restoreOriginalItem();
         if (this.getItem().getHasSubtypes()) {
             ooi$ooiInit();
         }
@@ -92,8 +98,10 @@ public abstract class MixinItemStack implements OOIItemStack {
 
     @Intrinsic
     public void ooi$replace(ItemConversionTarget target, Item targetItem) {
-        ooi$originalItem = this.item;
-        ooi$originalMeta = itemDamage;
+        if (!ooi$isBeReplaced) {
+            ooi$originalItem = this.item;
+            ooi$originalMeta = itemDamage;
+        }
         if (targetItem == Items.AIR) {
             this.setCount(0);
         } else {
@@ -105,11 +113,30 @@ public abstract class MixinItemStack implements OOIItemStack {
     }
 
     @Intrinsic
+    public void ooi$inheritReplacementState(Item originalItem, int originalMeta, Item currentItem,
+        net.minecraftforge.registries.IRegistryDelegate<Item> currentDelegate, int currentMeta) {
+        this.ooi$originalItem = originalItem;
+        this.ooi$originalMeta = originalMeta;
+        this.ooi$isBeReplaced = true;
+        this.item = currentItem;
+        this.delegate = currentDelegate;
+        this.itemDamage = currentMeta;
+    }
+
+    @Intrinsic
     public void ooi$restoreOriginalItem() {
         if (ooi$originalItem != null && this.item != ooi$originalItem) {
             this.item = ooi$originalItem;
             this.delegate = ooi$originalItem.delegate;
             this.itemDamage = ooi$originalMeta;
         }
+    }
+
+    @Intrinsic
+    public int ooi$getOldMetaData() {
+        if (ooi$isBeReplaced) {
+            return ooi$originalMeta;
+        }
+        return getItemDamage();
     }
 }

@@ -7,9 +7,16 @@ import com.circulation.only_one_item.util.BlackMatchItem;
 import com.circulation.only_one_item.util.MatchItem;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 import com.google.gson.reflect.TypeToken;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fml.common.Loader;
@@ -28,7 +35,7 @@ public class OOIConfig {
 
     public static final List<ItemConversionTarget> items = new ObjectArrayList<>();
     public static final List<FluidConversionTarget> fluids = new ObjectArrayList<>();
-    public static final Set<BlackMatchItem> blackList = new ObjectOpenHashSet<>();
+    public static final Set<BlackMatchItem> blackList = new ObjectLinkedOpenHashSet<>();
 
     private static Path configPath;
 
@@ -52,7 +59,7 @@ public class OOIConfig {
             throw new IllegalStateException("[OOI] Failed to create config directory " + directory, e);
         }
 
-        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        Gson gson = createGson();
         readItems(gson, directory.resolve("ooi_item.json"));
         readFluids(gson, directory.resolve("ooi_fluid.json"));
         readBlackList(gson, directory.resolve("ooi_item_black_list.json"));
@@ -64,7 +71,7 @@ public class OOIConfig {
             throw new IllegalStateException("[OOI] Configuration was not loaded before write");
         }
 
-        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        Gson gson = createGson();
         write(configPath.resolve("ooi_item.json"), gson.toJson(items), "item mappings");
         write(configPath.resolve("ooi_fluid.json"), gson.toJson(fluids), "fluid mappings");
         write(configPath.resolve("ooi_item_black_list.json"), gson.toJson(blackList), "item blacklist");
@@ -98,7 +105,6 @@ public class OOIConfig {
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_item.json file is incorrect", e);
-            throw new IllegalStateException("[OOI] The config/ooi/ooi_item.json file is incorrect", e);
         }
     }
 
@@ -123,7 +129,6 @@ public class OOIConfig {
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_fluid.json file is incorrect", e);
-            throw new IllegalStateException("[OOI] The config/ooi/ooi_fluid.json file is incorrect", e);
         }
     }
 
@@ -149,7 +154,6 @@ public class OOIConfig {
             }
         } catch (Exception e) {
             OnlyOneItem.LOGGER.error("[OOI] The config/ooi/ooi_item_black_list.json file is incorrect", e);
-            throw new IllegalStateException("[OOI] The config/ooi/ooi_item_black_list.json file is incorrect", e);
         }
     }
 
@@ -211,5 +215,52 @@ public class OOIConfig {
 
     private static boolean isNotBlank(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private static Gson createGson() {
+        return new GsonBuilder()
+            .registerTypeAdapter(MatchItem.class, new MatchItemJsonAdapter())
+            .disableHtmlEscaping()
+            .setPrettyPrinting()
+            .create();
+    }
+
+    private static final class MatchItemJsonAdapter implements JsonSerializer<MatchItem>, JsonDeserializer<MatchItem> {
+
+        @Override
+        public JsonElement serialize(MatchItem source, java.lang.reflect.Type type, JsonSerializationContext context) {
+            if ((source.oreName() == null) == (source.id() == null)) {
+                throw new JsonParseException("MatchItem must contain exactly one of oreName or id");
+            }
+            JsonObject result = new JsonObject();
+            if (source.oreName() != null) {
+                result.addProperty("oreName", source.oreName());
+                return result;
+            }
+            result.addProperty("id", source.id());
+            result.addProperty("meta", source.meta());
+            return result;
+        }
+
+        @Override
+        public MatchItem deserialize(JsonElement json, java.lang.reflect.Type type, JsonDeserializationContext context)
+            throws JsonParseException {
+            if (!json.isJsonObject()) {
+                throw new JsonParseException("MatchItem must be a JSON object");
+            }
+            JsonObject object = json.getAsJsonObject();
+            boolean hasOreName = object.has("oreName") && !object.get("oreName").isJsonNull();
+            boolean hasID = object.has("id") && !object.get("id").isJsonNull();
+            if (hasOreName == hasID) {
+                throw new JsonParseException("MatchItem must contain exactly one of oreName or id");
+            }
+            if (hasOreName) {
+                return MatchItem.getInstance(object.get("oreName").getAsString());
+            }
+            if (!object.has("meta") || object.get("meta").isJsonNull()) {
+                throw new JsonParseException("Item MatchItem must contain meta");
+            }
+            return MatchItem.getInstance(object.get("id").getAsString(), object.get("meta").getAsInt());
+        }
     }
 }

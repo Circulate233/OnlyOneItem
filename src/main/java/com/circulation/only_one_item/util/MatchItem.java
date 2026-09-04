@@ -7,13 +7,12 @@ import net.minecraft.item.ItemStack;
 public record MatchItem(String oreName, int meta, String id) {
 
     public MatchItem(String oreName, int meta, String id) {
+        if ((oreName == null) == (id == null)) {
+            throw new IllegalArgumentException("MatchItem must contain exactly one of oreName or id");
+        }
         this.oreName = oreName;
         this.meta = meta;
-        if (oreName == null && id == null) {
-            this.id = "";
-        } else {
-            this.id = id;
-        }
+        this.id = id;
     }
 
     public static MatchItem[] getInstance(ItemStack[] stacks) {
@@ -44,7 +43,7 @@ public record MatchItem(String oreName, int meta, String id) {
             if (oreName != null) {
                 return oreName.equals(matchItem.oreName);
             } else if (id != null) {
-                return id.equals(matchItem.id) && (meta == matchItem.meta || meta == 32767 || matchItem.meta == 32767);
+                return id.equals(matchItem.id) && meta == matchItem.meta;
             }
         }
         return false;
@@ -52,9 +51,11 @@ public record MatchItem(String oreName, int meta, String id) {
 
     @Override
     public int hashCode() {
-        int result = oreName == null ? 0 : oreName.hashCode();
-        result = 31 * result + (id == null ? 0 : id.hashCode());
-        return result;
+        if (oreName != null) {
+            return oreName.hashCode();
+        }
+        int result = id == null ? 0 : id.hashCode();
+        return 31 * result + meta;
     }
 
 }

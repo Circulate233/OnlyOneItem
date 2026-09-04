@@ -85,7 +85,7 @@ Only One Item 在物品或流体栈创建、复制和修改时应用映射，让
 
 ### 注意事项
 
-最终有效配置会写回 `config/ooi/ooi_item.json`、`config/ooi/ooi_fluid.json` 和 `config/ooi/ooi_item_black_list.json`。文件会被规范化覆盖，手工注释和原始排版不会保留，编辑前请备份。无效目标会被忽略并记录日志。
+最终有效配置会写回 `config/ooi/ooi_item.json`、`config/ooi/ooi_fluid.json` 和 `config/ooi/ooi_item_black_list.json`。物品映射会同时保留矿辞规则和矿辞最终展开出的具体物品 ID/meta。文件会被规范化覆盖，手工注释和原始排版不会保留，编辑前请备份。无效目标会被忽略并记录日志。
 
 CRT 在本 mod 中主要用于生成或补全这三份 JSON 配置，脚本注册的有效条目会写入 JSON。首次加入或修改 CRT 脚本的那次启动，运行中的替换结果可能不完整或不准确；启动完成后请检查生成的 JSON 并重启游戏或服务端。确认 JSON 无误后，后续启动以 JSON 为准，不要求继续保留 CRT 脚本。
 
@@ -195,7 +195,7 @@ The project was inspired by [OneEnoughItem](https://github.com/Tower-of-Sighs/On
 
 The three files are `config/ooi/ooi_item.json`, `config/ooi/ooi_fluid.json`, and `config/ooi/ooi_item_black_list.json`. The item file accepts item ID/meta and ore-dictionary match sources, the fluid file maps fluid names, and the blacklist accepts `Item`, `ModID`, and `OreDict` entries. See the [JSON examples](#配置文件).
 
-The final effective JSON and CRT configuration is written back to all three files. Comments and original formatting are not preserved, so back up the files before editing. Invalid targets are ignored and logged.
+The final effective JSON and CRT configuration is written back to all three files. Item mappings include both ore-dictionary rules and the concrete item ID/meta entries expanded from them. Comments and original formatting are not preserved, so back up the files before editing. Invalid targets are ignored and logged.
 
 CraftTweaker is mainly used to generate or complete these three JSON files, and valid registered entries are written to JSON. On the first launch after adding or changing a CRT script, replacement results may be incomplete or inaccurate. Check the generated JSON after startup and restart the game or server. Once the JSON is confirmed, later launches can use JSON directly; the CRT script does not have to be kept.
 

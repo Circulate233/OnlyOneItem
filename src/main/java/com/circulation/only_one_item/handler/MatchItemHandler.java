@@ -3,6 +3,7 @@ package com.circulation.only_one_item.handler;
 import com.circulation.only_one_item.OOIConfig;
 import com.circulation.only_one_item.OnlyOneItem;
 import com.circulation.only_one_item.conversion.ItemConversionTarget;
+import com.circulation.only_one_item.emun.Type;
 import com.circulation.only_one_item.util.BlackMatchItem;
 import com.circulation.only_one_item.util.MatchItem;
 import com.circulation.only_one_item.util.OOIItemStack;
@@ -10,6 +11,7 @@ import com.circulation.only_one_item.util.RecipeSignature;
 import com.circulation.only_one_item.util.SimpleItem;
 import com.google.common.collect.Multiset;
 import it.unimi.dsi.fastutil.Hash;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -35,13 +37,14 @@ import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.GameData;
 import net.minecraftforge.registries.RegistryManager;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class MatchItemHandler {
     private static final Map<ResourceLocation, Int2ObjectMap<ItemConversionTarget>> itemIdToTargetMap = new Object2ObjectOpenHashMap<>();
-    private static final Map<String, ItemConversionTarget> odToTargetMap = new Object2ObjectOpenHashMap<>();
+    private static final Map<String, ItemConversionTarget> odToTargetMap = new Object2ObjectLinkedOpenHashMap<>();
     private static final Map<ResourceLocation, IntSet> finalItemBlackMap = new Object2ObjectOpenHashMap<>();
     private static final Set<String> finalODBlackSet = new ObjectOpenHashSet<>();
     private static final Set<String> finalMODIDBlackSet = new ObjectOpenHashSet<>();
@@ -52,16 +55,16 @@ public class MatchItemHandler {
 
     private static final Hash.Strategy<ItemStack> hashItemStack = new Hash.Strategy<>() {
         @Override
-        public int hashCode(final ItemStack stack) {
-            return (stack.getItem().hashCode() + 31) * stack.getCount();
+        public int hashCode(ItemStack o) {
+            return 31 * o.getItem().hashCode();
         }
 
         @Override
-        public boolean equals(final ItemStack stack1, final ItemStack stack2) {
-            if (stack1 == null || stack2 == null) {
+        public boolean equals(ItemStack a, ItemStack b) {
+            if (a == null || b == null) {
                 return false;
             }
-            return stack2.getItem() == stack1.getItem() && (stack2.getMetadata() == 32767 || stack2.getMetadata() == stack1.getMetadata());
+            return a.getItem() == b.getItem() && (a.getMetadata() == b.getMetadata() || b.getMetadata() == Short.MAX_VALUE);
         }
     };
 
@@ -314,8 +317,21 @@ public class MatchItemHandler {
     }
 
     public static void postODProcess() {
+        Map<ResourceLocation, IntSet> sourcesBeforeOreScan = new Object2ObjectOpenHashMap<>();
+        for (Map.Entry<ResourceLocation, Int2ObjectMap<ItemConversionTarget>> entry : itemIdToTargetMap.entrySet()) {
+            sourcesBeforeOreScan.put(entry.getKey(), new IntOpenHashSet(entry.getValue().keySet()));
+        }
         for (Map.Entry<String, ItemConversionTarget> entry : odToTargetMap.entrySet()) {
             var od = entry.getKey();
+            ItemConversionTarget oreTarget = entry.getValue();
+            if (oreTarget == null || oreTarget.getTarget() == null) {
+                String targetID = oreTarget == null ? "null" : oreTarget.getTargetID();
+                int targetMeta = oreTarget == null ? 0 : oreTarget.getTargetMeta();
+                OnlyOneItem.LOGGER.error(
+                    "[OOI] Cannot finalize ore dictionary mapping: oreName={}, targetID={}, targetMeta={}",
+                    od, targetID, targetMeta);
+                throw new IllegalStateException("[OOI] Invalid final ore dictionary target " + targetID + ':' + targetMeta);
+            }
             var list = OreDictionary.getOres(od);
             var blackList = new ReferenceArrayList<ItemStack>();
             for (int index = 0, size = list.size(); index < size; index++) {
@@ -337,13 +353,170 @@ public class MatchItemHandler {
                         continue;
                     }
                 }
-                if (odToTargetMap.containsKey(od)) {
-                    addTargetItem(rl, ore.getMetadata(), odToTargetMap.get(od));
+                if (rl != null) {
+                    IntSet protectedMetas = sourcesBeforeOreScan.get(rl);
+                    if (protectedMetas == null || !protectedMetas.contains(ore.getMetadata())) {
+                        addTargetItem(rl, ore.getMetadata(), oreTarget);
+                    }
                 }
             }
             list.clear();
-            list.add(entry.getValue().getItemStack());
+            list.add(oreTarget.getItemStack());
             list.addAll(blackList);
+        }
+
+        rebuildConfigFromRuntimeMaps(
+            itemIdToTargetMap,
+            odToTargetMap,
+            finalItemBlackMap,
+            finalODBlackSet,
+            finalMODIDBlackSet);
+    }
+
+    static void rebuildConfigFromRuntimeMaps(
+        Map<ResourceLocation, Int2ObjectMap<ItemConversionTarget>> itemTargets,
+        Map<String, ItemConversionTarget> oreTargets,
+        Map<ResourceLocation, IntSet> itemBlackList,
+        Set<String> oreBlackList,
+        Set<String> modBlackList) {
+        Map<String, ItemConversionTarget> exportedTargets = new Object2ObjectLinkedOpenHashMap<>();
+        for (int index = 0, size = OOIConfig.items.size(); index < size; index++) {
+            ItemConversionTarget target = OOIConfig.items.get(index);
+            validateTarget(target);
+            if (target.getTarget() == null) {
+                OnlyOneItem.LOGGER.error(
+                    "[OOI] Cannot establish final target order: targetID={}, targetMeta={}",
+                    target.getTargetID(), target.getTargetMeta());
+                throw new IllegalStateException(
+                    "[OOI] Invalid configured item target " + target.getTargetID() + ':' + target.getTargetMeta());
+            }
+            String targetKey = target.getTargetID() + '#' + target.getTargetMeta();
+            if (!exportedTargets.containsKey(targetKey)) {
+                exportedTargets.put(targetKey, new ItemConversionTarget(target.getTargetID(), target.getTargetMeta())
+                    .setMatchItem(new ObjectLinkedOpenHashSet<>()));
+            }
+        }
+
+        ObjectArrayList<ResourceLocation> itemIDs = new ObjectArrayList<>(itemTargets.keySet());
+        for (int index = 0, size = itemIDs.size(); index < size; index++) {
+            if (itemIDs.get(index) == null) {
+                OnlyOneItem.LOGGER.error("[OOI] Cannot export item mapping with a null source item ID");
+                throw new IllegalStateException("[OOI] Cannot export item mapping with a null source item ID");
+            }
+        }
+        itemIDs.sort(Comparator.comparing(ResourceLocation::toString));
+        Map<String, ItemConversionTarget> runtimeTargets = new Object2ObjectOpenHashMap<>();
+        for (int idIndex = 0, idSize = itemIDs.size(); idIndex < idSize; idIndex++) {
+            ResourceLocation itemID = itemIDs.get(idIndex);
+            Int2ObjectMap<ItemConversionTarget> metaTargets = itemTargets.get(itemID);
+            IntArrayList metas = new IntArrayList(metaTargets.keySet());
+            metas.sort(null);
+            for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
+                int meta = metas.getInt(metaIndex);
+                ItemConversionTarget target = metaTargets.get(meta);
+                if (target == null || target.getTarget() == null) {
+                    String targetID = target == null ? "null" : target.getTargetID();
+                    int targetMeta = target == null ? 0 : target.getTargetMeta();
+                    OnlyOneItem.LOGGER.error(
+                        "[OOI] Cannot export item mapping: sourceID={}, sourceMeta={}, targetID={}, targetMeta={}",
+                        itemID, meta, targetID, targetMeta);
+                    throw new IllegalStateException("[OOI] Invalid final item target " + targetID + ':' + targetMeta);
+                }
+                String targetKey = target.getTargetID() + '#' + target.getTargetMeta();
+                runtimeTargets.put(targetKey, target);
+            }
+        }
+
+        ObjectArrayList<String> oreNames = new ObjectArrayList<>(oreTargets.keySet());
+        oreNames.sort(String::compareTo);
+        for (int index = 0, size = oreNames.size(); index < size; index++) {
+            String oreName = oreNames.get(index);
+            ItemConversionTarget target = oreTargets.get(oreName);
+            if (target == null || target.getTarget() == null) {
+                String targetID = target == null ? "null" : target.getTargetID();
+                int targetMeta = target == null ? 0 : target.getTargetMeta();
+                OnlyOneItem.LOGGER.error(
+                    "[OOI] Cannot export ore dictionary mapping: oreName={}, targetID={}, targetMeta={}",
+                    oreName, targetID, targetMeta);
+                throw new IllegalStateException("[OOI] Invalid final ore dictionary target " + targetID + ':' + targetMeta);
+            }
+            String targetKey = target.getTargetID() + '#' + target.getTargetMeta();
+            runtimeTargets.put(targetKey, target);
+        }
+
+        ObjectArrayList<ItemConversionTarget> additionalTargets = new ObjectArrayList<>();
+        for (Map.Entry<String, ItemConversionTarget> entry : runtimeTargets.entrySet()) {
+            if (!exportedTargets.containsKey(entry.getKey())) {
+                additionalTargets.add(entry.getValue());
+            }
+        }
+        additionalTargets.sort(
+            Comparator.comparing(ItemConversionTarget::getTargetID)
+                .thenComparingInt(ItemConversionTarget::getTargetMeta));
+        for (int index = 0, size = additionalTargets.size(); index < size; index++) {
+            ItemConversionTarget target = additionalTargets.get(index);
+            String targetKey = target.getTargetID() + '#' + target.getTargetMeta();
+            exportedTargets.put(targetKey, new ItemConversionTarget(target.getTargetID(), target.getTargetMeta())
+                .setMatchItem(new ObjectLinkedOpenHashSet<>()));
+        }
+
+        for (int idIndex = 0, idSize = itemIDs.size(); idIndex < idSize; idIndex++) {
+            ResourceLocation itemID = itemIDs.get(idIndex);
+            Int2ObjectMap<ItemConversionTarget> metaTargets = itemTargets.get(itemID);
+            IntArrayList metas = new IntArrayList(metaTargets.keySet());
+            metas.sort(null);
+            for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
+                int meta = metas.getInt(metaIndex);
+                ItemConversionTarget target = metaTargets.get(meta);
+                exportedTargets.get(target.getTargetID() + '#' + target.getTargetMeta())
+                    .getMatchItems()
+                    .add(MatchItem.getInstance(itemID.toString(), meta));
+            }
+        }
+
+        for (int index = 0, size = oreNames.size(); index < size; index++) {
+            String oreName = oreNames.get(index);
+            ItemConversionTarget target = oreTargets.get(oreName);
+            exportedTargets.get(target.getTargetID() + '#' + target.getTargetMeta())
+                .getMatchItems()
+                .add(MatchItem.getInstance(oreName));
+        }
+
+        OOIConfig.items.clear();
+        for (ItemConversionTarget target : exportedTargets.values()) {
+            if (!target.getMatchItems().isEmpty()) {
+                OOIConfig.items.add(target);
+            }
+        }
+
+        OOIConfig.blackList.clear();
+        ObjectArrayList<ResourceLocation> blackItemIDs = new ObjectArrayList<>(itemBlackList.keySet());
+        for (int index = 0, size = blackItemIDs.size(); index < size; index++) {
+            if (blackItemIDs.get(index) == null) {
+                OnlyOneItem.LOGGER.error("[OOI] Cannot export item blacklist with a null item ID");
+                throw new IllegalStateException("[OOI] Cannot export item blacklist with a null item ID");
+            }
+        }
+        blackItemIDs.sort(Comparator.comparing(ResourceLocation::toString));
+        for (int idIndex = 0, idSize = blackItemIDs.size(); idIndex < idSize; idIndex++) {
+            ResourceLocation itemID = blackItemIDs.get(idIndex);
+            IntArrayList metas = new IntArrayList(itemBlackList.get(itemID));
+            metas.sort(null);
+            for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
+                OOIConfig.blackList.add(BlackMatchItem.getInstance(itemID.toString(), metas.getInt(metaIndex)));
+            }
+        }
+
+        ObjectArrayList<String> blackOreNames = new ObjectArrayList<>(oreBlackList);
+        blackOreNames.sort(String::compareTo);
+        for (int index = 0, size = blackOreNames.size(); index < size; index++) {
+            OOIConfig.blackList.add(BlackMatchItem.getInstance(Type.OreDict, blackOreNames.get(index)));
+        }
+
+        ObjectArrayList<String> blackModIDs = new ObjectArrayList<>(modBlackList);
+        blackModIDs.sort(String::compareTo);
+        for (int index = 0, size = blackModIDs.size(); index < size; index++) {
+            OOIConfig.blackList.add(BlackMatchItem.getInstance(Type.ModID, blackModIDs.get(index)));
         }
     }
 

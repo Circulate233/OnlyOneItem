@@ -19,8 +19,7 @@ public class LateMixinLoader implements ILateMixinLoader {
     private static final Map<String, BooleanSupplier> MIXIN_CONFIGS = new Object2ObjectLinkedOpenHashMap<>();
 
     static {
-        addModdedMixinCFG("mixins.only_one_item.ic2.json", "ic2");
-        addModdedMixinCFG("mixins.only_one_item.mek.json", "mekanism");
+        addModdedMixinCFG("mixins.only_one_item.techguns.json", "techguns");
     }
 
     private static boolean modLoaded(final String modID) {

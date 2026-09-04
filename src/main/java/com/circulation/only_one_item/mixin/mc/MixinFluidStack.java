@@ -13,41 +13,34 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(FluidStack.class)
 public abstract class MixinFluidStack implements OOIFluidStack {
 
-    @Unique
-    private static MethodHandle ooi$delegates;
     @Shadow(remap = false)
     private IRegistryDelegate<Fluid> fluidDelegate;
+    @Unique
+    private boolean ooi$isBeReplaced;
+    @Unique
+    private Fluid ooi$originalFluid;
 
     @Unique
     private static IRegistryDelegate<Fluid> ooi$makeDelegate(Fluid fluid) {
-        if (ooi$delegates == null) {
-            Class<?> clazz = FluidRegistry.class;
-            try {
-                ooi$delegates = MethodHandles.lookup().unreflect(clazz.getDeclaredMethod("makeDelegate", Fluid.class));
-            } catch (NoSuchMethodException | IllegalAccessException ignored) {
-
-            }
-        }
-        try {
-            if (ooi$delegates != null) {
-                return (IRegistryDelegate<Fluid>) ooi$delegates.invoke(fluid);
-            }
-        } catch (Throwable ignored) {
-
-        }
-        return null;
+        return FluidRegistry.makeDelegate(fluid);
     }
 
     @Inject(method = "<init>(Lnet/minecraftforge/fluids/Fluid;I)V", at = @At("TAIL"), remap = false)
     private void onInit(Fluid fluid, int amount, CallbackInfo ci) {
         ooi$ooiInit(fluid);
+    }
+
+    @Inject(method = "copy", at = @At("TAIL"), remap = false)
+    private void copy(CallbackInfoReturnable<FluidStack> cir) {
+        if (ooi$isBeReplaced) {
+            ((OOIFluidStack) (Object) cir.getReturnValue())
+                .ooi$inheritReplacementState(ooi$originalFluid, fluidDelegate);
+        }
     }
 
     @Override
@@ -69,7 +62,18 @@ public abstract class MixinFluidStack implements OOIFluidStack {
     public void ooi$replace(Fluid target) {
         var delegate = ooi$makeDelegate(target);
         if (delegate != null) {
+            if (!ooi$isBeReplaced) {
+                ooi$originalFluid = fluidDelegate.get();
+            }
             fluidDelegate = delegate;
+            ooi$isBeReplaced = true;
         }
+    }
+
+    @Override
+    public void ooi$inheritReplacementState(Fluid originalFluid, IRegistryDelegate<Fluid> currentDelegate) {
+        this.ooi$originalFluid = originalFluid;
+        this.ooi$isBeReplaced = true;
+        this.fluidDelegate = currentDelegate;
     }
 }

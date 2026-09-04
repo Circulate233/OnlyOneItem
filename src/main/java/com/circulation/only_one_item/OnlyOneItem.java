@@ -52,7 +52,6 @@ public class OnlyOneItem {
         MatchItemHandler.finalizeTargets();
         MatchFluidHandler.finalizeTargets();
         InitHandler.allPreInit();
-        OOIConfig.writeConfig();
         if (!Loader.isModLoaded("unidict")) {
             MatchItemHandler.clearRecipe();
         }
@@ -61,6 +60,7 @@ public class OnlyOneItem {
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
         MatchItemHandler.postODProcess();
+        OOIConfig.writeConfig();
     }
 
 }
