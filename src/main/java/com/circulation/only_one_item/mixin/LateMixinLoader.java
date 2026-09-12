@@ -20,6 +20,7 @@ public class LateMixinLoader implements ILateMixinLoader {
 
     static {
         addModdedMixinCFG("mixins.only_one_item.techguns.json", "techguns");
+        addModdedMixinCFG("mixins.only_one_item.actuallyadditions.json", "actuallyadditions");
     }
 
     private static boolean modLoaded(final String modID) {

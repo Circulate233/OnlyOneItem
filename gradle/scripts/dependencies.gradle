@@ -37,4 +37,5 @@ dependencies {
     implementation("CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.+")
     implementation(rfg.deobf("curse.maven:had-enough-items-557549:6930666"))
     implementation rfg.deobf("curse.maven:techguns-244201:2958103")
+    implementation rfg.deobf("curse.maven:actually-additions-228404:3117927")
 }

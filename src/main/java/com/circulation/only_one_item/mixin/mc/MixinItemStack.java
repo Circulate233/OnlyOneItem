@@ -139,4 +139,10 @@ public abstract class MixinItemStack implements OOIItemStack {
         }
         return getItemDamage();
     }
+
+    @Intrinsic
+    @Override
+    public Item ooi$getOldItem() {
+        return ooi$isBeReplaced && ooi$originalItem != null ? ooi$originalItem : getItem();
+    }
 }

@@ -25,4 +25,6 @@ public interface OOIItemStack {
     void ooi$restoreOriginalItem();
 
     int ooi$getOldMetaData();
+
+    Item ooi$getOldItem();
 }

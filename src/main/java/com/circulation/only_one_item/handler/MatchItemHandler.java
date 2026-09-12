@@ -73,6 +73,9 @@ public class MatchItemHandler {
             var ods = OreDictionary.getOres(od);
             var listC = new ObjectArrayList<>(ods);
             ods.clear();
+            Item targetItem = i.getTarget();
+            int targetMeta = i.getTargetMeta();
+            boolean targetPresent = false;
             for (int index = 0, size = listC.size(); index < size; index++) {
                 ItemStack stack = listC.get(index);
                 Item item = stack.getItem();
@@ -83,9 +86,14 @@ public class MatchItemHandler {
                     || finalMODIDBlackSet.contains(rl.getNamespace())
                     || allTarget.contains(SimpleItem.getInstance(stack))) {
                     ods.add(stack);
+                    if (item == targetItem && meta == targetMeta) {
+                        targetPresent = true;
+                    }
                 }
             }
-            ods.add(i.getItemStack());
+            if (!targetPresent) {
+                ods.add(i.getItemStack());
+            }
         });
 
         processPendingStacks();
@@ -334,13 +342,17 @@ public class MatchItemHandler {
             }
             var list = OreDictionary.getOres(od);
             var blackList = new ReferenceArrayList<ItemStack>();
+            Item targetItem = oreTarget.getTarget();
+            int targetMeta = oreTarget.getTargetMeta();
             for (int index = 0, size = list.size(); index < size; index++) {
                 ItemStack ore = list.get(index);
                 if (finalODBlackSet.contains(od)) {
                     finalItemBlackMap
                         .computeIfAbsent(ore.getItem().getRegistryName(), item -> new IntOpenHashSet())
                         .add(ore.getMetadata());
-                    blackList.add(ore);
+                    if (ore.getItem() != targetItem || ore.getMetadata() != targetMeta) {
+                        blackList.add(ore);
+                    }
                     continue;
                 }
                 var rl = ore.getItem().getRegistryName();
@@ -349,7 +361,9 @@ public class MatchItemHandler {
                         finalItemBlackMap
                             .computeIfAbsent(rl, item -> new IntOpenHashSet())
                             .add(ore.getMetadata());
-                        blackList.add(ore);
+                        if (ore.getItem() != targetItem || ore.getMetadata() != targetMeta) {
+                            blackList.add(ore);
+                        }
                         continue;
                     }
                 }
@@ -366,19 +380,10 @@ public class MatchItemHandler {
         }
 
         rebuildConfigFromRuntimeMaps(
-            itemIdToTargetMap,
-            odToTargetMap,
-            finalItemBlackMap,
-            finalODBlackSet,
-            finalMODIDBlackSet);
+        );
     }
 
-    static void rebuildConfigFromRuntimeMaps(
-        Map<ResourceLocation, Int2ObjectMap<ItemConversionTarget>> itemTargets,
-        Map<String, ItemConversionTarget> oreTargets,
-        Map<ResourceLocation, IntSet> itemBlackList,
-        Set<String> oreBlackList,
-        Set<String> modBlackList) {
+    static void rebuildConfigFromRuntimeMaps() {
         Map<String, ItemConversionTarget> exportedTargets = new Object2ObjectLinkedOpenHashMap<>();
         for (int index = 0, size = OOIConfig.items.size(); index < size; index++) {
             ItemConversionTarget target = OOIConfig.items.get(index);
@@ -397,7 +402,7 @@ public class MatchItemHandler {
             }
         }
 
-        ObjectArrayList<ResourceLocation> itemIDs = new ObjectArrayList<>(itemTargets.keySet());
+        ObjectArrayList<ResourceLocation> itemIDs = new ObjectArrayList<>(MatchItemHandler.itemIdToTargetMap.keySet());
         for (int index = 0, size = itemIDs.size(); index < size; index++) {
             if (itemIDs.get(index) == null) {
                 OnlyOneItem.LOGGER.error("[OOI] Cannot export item mapping with a null source item ID");
@@ -408,7 +413,7 @@ public class MatchItemHandler {
         Map<String, ItemConversionTarget> runtimeTargets = new Object2ObjectOpenHashMap<>();
         for (int idIndex = 0, idSize = itemIDs.size(); idIndex < idSize; idIndex++) {
             ResourceLocation itemID = itemIDs.get(idIndex);
-            Int2ObjectMap<ItemConversionTarget> metaTargets = itemTargets.get(itemID);
+            Int2ObjectMap<ItemConversionTarget> metaTargets = MatchItemHandler.itemIdToTargetMap.get(itemID);
             IntArrayList metas = new IntArrayList(metaTargets.keySet());
             metas.sort(null);
             for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
@@ -427,11 +432,11 @@ public class MatchItemHandler {
             }
         }
 
-        ObjectArrayList<String> oreNames = new ObjectArrayList<>(oreTargets.keySet());
+        ObjectArrayList<String> oreNames = new ObjectArrayList<>(MatchItemHandler.odToTargetMap.keySet());
         oreNames.sort(String::compareTo);
         for (int index = 0, size = oreNames.size(); index < size; index++) {
             String oreName = oreNames.get(index);
-            ItemConversionTarget target = oreTargets.get(oreName);
+            ItemConversionTarget target = MatchItemHandler.odToTargetMap.get(oreName);
             if (target == null || target.getTarget() == null) {
                 String targetID = target == null ? "null" : target.getTargetID();
                 int targetMeta = target == null ? 0 : target.getTargetMeta();
@@ -462,7 +467,7 @@ public class MatchItemHandler {
 
         for (int idIndex = 0, idSize = itemIDs.size(); idIndex < idSize; idIndex++) {
             ResourceLocation itemID = itemIDs.get(idIndex);
-            Int2ObjectMap<ItemConversionTarget> metaTargets = itemTargets.get(itemID);
+            Int2ObjectMap<ItemConversionTarget> metaTargets = MatchItemHandler.itemIdToTargetMap.get(itemID);
             IntArrayList metas = new IntArrayList(metaTargets.keySet());
             metas.sort(null);
             for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
@@ -476,7 +481,7 @@ public class MatchItemHandler {
 
         for (int index = 0, size = oreNames.size(); index < size; index++) {
             String oreName = oreNames.get(index);
-            ItemConversionTarget target = oreTargets.get(oreName);
+            ItemConversionTarget target = MatchItemHandler.odToTargetMap.get(oreName);
             exportedTargets.get(target.getTargetID() + '#' + target.getTargetMeta())
                 .getMatchItems()
                 .add(MatchItem.getInstance(oreName));
@@ -490,7 +495,7 @@ public class MatchItemHandler {
         }
 
         OOIConfig.blackList.clear();
-        ObjectArrayList<ResourceLocation> blackItemIDs = new ObjectArrayList<>(itemBlackList.keySet());
+        ObjectArrayList<ResourceLocation> blackItemIDs = new ObjectArrayList<>(MatchItemHandler.finalItemBlackMap.keySet());
         for (int index = 0, size = blackItemIDs.size(); index < size; index++) {
             if (blackItemIDs.get(index) == null) {
                 OnlyOneItem.LOGGER.error("[OOI] Cannot export item blacklist with a null item ID");
@@ -500,20 +505,20 @@ public class MatchItemHandler {
         blackItemIDs.sort(Comparator.comparing(ResourceLocation::toString));
         for (int idIndex = 0, idSize = blackItemIDs.size(); idIndex < idSize; idIndex++) {
             ResourceLocation itemID = blackItemIDs.get(idIndex);
-            IntArrayList metas = new IntArrayList(itemBlackList.get(itemID));
+            IntArrayList metas = new IntArrayList(MatchItemHandler.finalItemBlackMap.get(itemID));
             metas.sort(null);
             for (int metaIndex = 0, metaSize = metas.size(); metaIndex < metaSize; metaIndex++) {
                 OOIConfig.blackList.add(BlackMatchItem.getInstance(itemID.toString(), metas.getInt(metaIndex)));
             }
         }
 
-        ObjectArrayList<String> blackOreNames = new ObjectArrayList<>(oreBlackList);
+        ObjectArrayList<String> blackOreNames = new ObjectArrayList<>(MatchItemHandler.finalODBlackSet);
         blackOreNames.sort(String::compareTo);
         for (int index = 0, size = blackOreNames.size(); index < size; index++) {
             OOIConfig.blackList.add(BlackMatchItem.getInstance(Type.OreDict, blackOreNames.get(index)));
         }
 
-        ObjectArrayList<String> blackModIDs = new ObjectArrayList<>(modBlackList);
+        ObjectArrayList<String> blackModIDs = new ObjectArrayList<>(MatchItemHandler.finalMODIDBlackSet);
         blackModIDs.sort(String::compareTo);
         for (int index = 0, size = blackModIDs.size(); index < size; index++) {
             OOIConfig.blackList.add(BlackMatchItem.getInstance(Type.ModID, blackModIDs.get(index)));
