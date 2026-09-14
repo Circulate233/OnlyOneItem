@@ -83,6 +83,9 @@ public abstract class MixinItemStack implements OOIItemStack {
 
     @Intrinsic
     public void ooi$ooiInit() {
+        if (delegate == null) {
+            return;
+        }
         ItemConversionTarget target = MatchItemHandler.match(item, itemDamage);
         if (target == null) {
             return;

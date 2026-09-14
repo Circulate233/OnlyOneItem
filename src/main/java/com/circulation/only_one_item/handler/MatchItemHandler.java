@@ -142,13 +142,6 @@ public class MatchItemHandler {
         if (map == null) {
             return;
         }
-        for (ObjectArrayList<OOIItemStack> stacks : map.values()) {
-            for (int index = 0, size = stacks.size(); index < size; index++) {
-                if (stacks.get(index) == stack) {
-                    return;
-                }
-            }
-        }
         map.computeIfAbsent(target, key -> new ObjectArrayList<>()).add(stack);
     }
 

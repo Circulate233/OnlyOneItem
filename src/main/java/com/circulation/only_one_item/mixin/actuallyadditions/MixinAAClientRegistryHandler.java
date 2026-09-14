@@ -17,7 +17,7 @@ public class MixinAAClientRegistryHandler {
             value = "INVOKE",
             target = "Lnet/minecraft/item/ItemStack;getItem()Lnet/minecraft/item/Item;",
             remap = true))
-    private static Item onGetItem(ItemStack itemStack) {
+    private Item onGetItem(ItemStack itemStack) {
         return OOIItemStack.forItem(itemStack).ooi$getOldItem();
     }
 
@@ -27,7 +27,7 @@ public class MixinAAClientRegistryHandler {
             value = "INVOKE",
             target = "Lnet/minecraft/item/ItemStack;getItemDamage()I",
             remap = true))
-    private static int onGetItemDamage(ItemStack itemStack) {
+    private int onGetItemDamage(ItemStack itemStack) {
         return OOIItemStack.forItem(itemStack).ooi$getOldMetaData();
     }
 }

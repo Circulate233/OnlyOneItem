@@ -8,11 +8,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/**
- * GCBlocks 用自己的方块子物品栈构建创造模式排序表，并在 finalizeSort 中把它交给
- * Ordering.explicit。这些临时栈经过 OOI 替换后会塌缩成同一个目标身份，导致
- * ImmutableMap 出现重复键并抛 IllegalArgumentException。这里在读取处取回原物品。
- */
 @Mixin(value = GCBlocks.class, remap = false)
 public class MixinGCBlocks {
 
@@ -26,7 +21,6 @@ public class MixinGCBlocks {
         return OOIItemStack.forItem(itemStack).ooi$getOldItem();
     }
 
-    // getCategory 与 StackSorted 构造各调用一次，因此不限定注入数量
     @Redirect(
         method = "registerSorted",
         at = @At(
